@@ -1,0 +1,39 @@
+## 📋 PROJECT OVERVIEW
+
+**Margarita's Tailoring Helper** is a web app that assists Margarita León, a non-fluent English speaking clothing designer and tailor from Utah, with a common inconvenience language barriers may pose. The app allows Spanish speaking and other non-English speaking communities to access tailors, while communicating, build trust and leverage business operation improvements.
+
+### **Target Audience:**
+- Margarita León and other tailors with some level of language limitations.
+- Spanish speaking or Utah clients needing tailoring services.
+- Immigrants and other non-English speaking members of our community who just want to book an appointment and establish communication effortlessly.
+
+### **Major Problem?** 
+Language barriers in the tailoring service industry (automatic language translation and simple user interface).
+## WEEKLY IMPLEMENTATION PLAN
+
+### WEEK 5: SETUP AND BASE STRUCTURE
+
+The primary tasks are:
+Implement the modular design into a basic folder structure; set up the development environment using ESLint; create the chat.html and comments.html initial HTML files; separate and modularize the CSS that was using inline styles to external files; and use ES Modules to create empty and properly structured JS module files.
+Verify the basic setup and functionality of the Google Maps API.
+Make UI designs and wireframes for the remaining pages. Record project setup in README.md.
+
+### WEEK 6: BUILDING OUT CORE FUNCTIONALITY
+
+Main Tasks:
+Integrate form validation and localStorage persistence for the booking logic.
+Build a comment and review system with ratings and auto-translation capability; and, get the Google Translate API to develop live chat functionality;
+Build an API abstraction module for EmailJS, Google Maps, and Google Translate.
+Complete the data management module for local storage operations.
+Develop an event-handling framework for user interactions across all pages.
+Build a user interface module for rendering dynamic content.
+
+### WEEK 7: DEPLOYMENT, ANIMATION, AND INTEGRATION
+
+**Key Tasks:** - Add CSS animations and micro-interactions in order to improve user experience
+
+Create a animation module which makes use of JavaScript to fire animation dynamically. Add email notifications for appointment confirmations using EmailJS.
+Make sure your design is responsive to all screen sizes and devices.
+Test each feature and api integration thoroughly.
+Solve all ESLint issues and guarantee code quality requirements
+Test SEO optimization and accessibility. Deploy application on a static hosting platform (Netlify/Vercel).
