@@ -1,4 +1,4 @@
-// Booking Module - CON INTEGRACIÓN GOOGLE CALENDAR
+// Booking Module 
 class BookingManager {
     constructor() {
         this.emailConfig = {
@@ -15,7 +15,7 @@ class BookingManager {
         this.setupConditionalFields();
         this.setupModal();
         this.loadEmailJS();
-        this.loadGoogleCalendar(); // NUEVO
+        // Removido loadGoogleCalendar() - se maneja desde CalendarManager
     }
 
     loadEmailJS() {
@@ -24,32 +24,6 @@ class BookingManager {
             script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
             script.onload = () => emailjs.init(this.emailConfig.publicKey);
             document.head.appendChild(script);
-        }
-    }
-
-    // NUEVO - Cargar Google Calendar API
-    loadGoogleCalendar() {
-        if (!window.gapi) {
-            const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/api.js';
-            script.onload = () => this.initGoogleCalendar();
-            document.head.appendChild(script);
-        }
-    }
-
-    // NUEVO - Inicializar Google Calendar
-    async initGoogleCalendar() {
-        try {
-            await new Promise(resolve => gapi.load('client:auth2', resolve));
-            await gapi.client.init({
-                apiKey: 'AIzaSyCyrePzpyKk0TyxmsOD_DfsugNzsqj100c',
-                clientId: '946439619564-icqajnh76akqfipvci6iab7am1s2vqkc.apps.googleusercontent.com',
-                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
-                scope: 'https://www.googleapis.com/auth/calendar.events'
-            });
-            console.log('Google Calendar API listo');
-        } catch (error) {
-            console.warn('Google Calendar no disponible:', error);
         }
     }
 
@@ -167,11 +141,11 @@ class BookingManager {
             // Guardar reserva
             this.saveBooking(bookingData);
 
-            // Enviar email
-            await this.sendEmailNotification(bookingData);
+            // Enviar emails (tanto confirmación como notificación)
+            await this.sendNotifications(bookingData);
 
-            // NUEVO - Agregar a Google Calendar
-            await this.addToGoogleCalendar(bookingData);
+            // Intentar agregar a Google Calendar (opcional)
+            await this.tryAddToGoogleCalendar(bookingData);
 
             this.showModal();
             form.reset();
@@ -185,56 +159,129 @@ class BookingManager {
         }
     }
 
-    // NUEVO - Agregar evento a Google Calendar
-    async addToGoogleCalendar(data) {
+    // NUEVO - Método para intentar agregar a Google Calendar sin bloquear el proceso
+    async tryAddToGoogleCalendar(data) {
         try {
-            if (!window.gapi || !gapi.client.calendar) {
-                console.warn('Google Calendar API no disponible');
-                return;
+            // Verificar si CalendarManager está disponible
+            if (window.calendarManager) {
+                const appointmentData = {
+                    id: Date.now(),
+                    fullName: `${data.firstName} ${data.lastName}`,
+                    email: data.email,
+                    phone: data.phone,
+                    service: data.service,
+                    appointmentDate: data.date,
+                    appointmentTime: data.time,
+                    description: data.description,
+                    notes: data.address ? `Recolección en: ${data.address}` : null
+                };
+
+                await window.calendarManager.createAppointmentEvent(appointmentData);
+                console.log('Evento agregado a Google Calendar');
             }
-
-            // Verificar autenticación
-            const authInstance = gapi.auth2.getAuthInstance();
-            if (!authInstance.isSignedIn.get()) {
-                await authInstance.signIn();
-            }
-
-            // Crear evento
-            const startDateTime = new Date(`${data.date}T${data.time}`);
-            const endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000));
-
-            const event = {
-                summary: `${data.service} - Margarita's Tailoring`,
-                description: `Cliente: ${data.firstName} ${data.lastName}\nTeléfono: ${data.phone}\nEmail: ${data.email}\n${data.description ? `Detalles: ${data.description}` : ''}`,
-                start: {
-                    dateTime: startDateTime.toISOString(),
-                    timeZone: 'America/Denver'
-                },
-                end: {
-                    dateTime: endDateTime.toISOString(),
-                    timeZone: 'America/Denver'
-                },
-                location: '88 W 50 S Unit E2, Centerville, UT 84014',
-                attendees: [{ email: data.email }],
-                reminders: {
-                    useDefault: false,
-                    overrides: [
-                        { method: 'email', minutes: 24 * 60 },
-                        { method: 'popup', minutes: 60 }
-                    ]
-                }
-            };
-
-            await gapi.client.calendar.events.insert({
-                calendarId: 'primary',
-                resource: event
-            });
-
-            console.log('Evento agregado a Google Calendar');
         } catch (error) {
             console.warn('No se pudo agregar a Google Calendar:', error);
             // No bloquear el proceso si falla el calendario
         }
+    }
+
+    // CORREGIDO - Enviar tanto email de confirmación como notificación
+    async sendNotifications(data) {
+        const promises = [];
+
+        // 1. Email de confirmación al cliente
+        promises.push(this.sendConfirmationEmail(data));
+
+        // 2. Email de notificación al negocio
+        promises.push(this.sendBusinessNotification(data));
+
+        // Ejecutar ambos emails en paralelo
+        await Promise.allSettled(promises);
+    }
+
+    // NUEVO - Email de confirmación para el cliente
+    async sendConfirmationEmail(data) {
+        if (!window.emailjs) {
+            throw new Error('EmailJS not loaded');
+        }
+
+        const templateParams = {
+            to_email: data.email, // Email del CLIENTE
+            to_name: `${data.firstName} ${data.lastName}`,
+            from_name: 'Margarita\'s Tailoring',
+            service: data.service,
+            date: data.date,
+            time: data.time,
+            priority: data.priority ? 'Sí' : 'No',
+            pickup: data.pickup ? 'Sí' : 'No',
+            address: data.address || 'N/A',
+            description: data.description || 'Sin descripción adicional',
+            subject: 'Confirmación de Cita - Margarita\'s Tailoring',
+            message: `Estimado/a ${data.firstName},
+
+Su cita ha sido confirmada exitosamente:
+
+📅 Fecha: ${data.date}
+🕐 Hora: ${data.time}
+✂️ Servicio: ${data.service}
+⚡ Servicio Express: ${data.priority ? 'Sí' : 'No'}
+🚗 Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}
+${data.address ? `📍 Dirección: ${data.address}` : ''}
+
+${data.description ? `Detalles adicionales: ${data.description}` : ''}
+
+Si necesita hacer cambios, contáctenos:
+📞 (801) 555-0123
+📧 info@margaritastailoring.com
+
+¡Gracias por elegir Margarita's Tailoring!`
+        };
+
+        return emailjs.send(
+            this.emailConfig.serviceId,
+            'template_confirmation', // Template específico para confirmación
+            templateParams
+        );
+    }
+
+    // CORREGIDO - Email de notificación para el negocio
+    async sendBusinessNotification(data) {
+        if (!window.emailjs) {
+            throw new Error('EmailJS not loaded');
+        }
+
+        const templateParams = {
+            to_email: 'info@margaritastailoring.com', // Email del NEGOCIO
+            from_name: `${data.firstName} ${data.lastName}`,
+            from_email: data.email,
+            phone: data.phone,
+            service: data.service,
+            date: data.date,
+            time: data.time,
+            priority: data.priority ? 'Sí' : 'No',
+            pickup: data.pickup ? 'Sí' : 'No',
+            address: data.address || 'N/A',
+            description: data.description || 'Sin descripción adicional',
+            subject: 'Nueva Reserva de Cita',
+            message: `Nueva reserva de cita:
+            
+Nombre: ${data.firstName} ${data.lastName}
+Email: ${data.email}
+Teléfono: ${data.phone}
+Servicio: ${data.service}
+Fecha: ${data.date}
+Hora: ${data.time}
+Servicio Express: ${data.priority ? 'Sí' : 'No'}
+Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}
+${data.address ? `Dirección: ${data.address}` : ''}
+${data.description ? `Descripción: ${data.description}` : ''}`
+        };
+
+        return emailjs.send(
+            this.emailConfig.serviceId,
+            this.emailConfig.templateId, // Template para notificaciones de negocio
+            templateParams
+        );
     }
 
     validateForm(data) {
@@ -260,54 +307,21 @@ class BookingManager {
     }
 
     saveBooking(data) {
-        const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-        const booking = {
-            id: Date.now(),
-            ...data,
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-        
-        bookings.push(booking);
-        localStorage.setItem('bookings', JSON.stringify(bookings));
-    }
-
-    async sendEmailNotification(data) {
-        if (!window.emailjs) {
-            throw new Error('EmailJS not loaded');
-        }
-
-        const templateParams = {
-            to_email: 'info@margaritastailoring.com',
-            from_name: `${data.firstName} ${data.lastName}`,
-            from_email: data.email,
-            phone: data.phone,
-            service: data.service,
-            date: data.date,
-            time: data.time,
-            priority: data.priority ? 'Sí' : 'No',
-            pickup: data.pickup ? 'Sí' : 'No',
-            address: data.address || 'N/A',
-            description: data.description || 'Sin descripción adicional',
-            message: `Nueva reserva de cita:
+        try {
+            const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+            const booking = {
+                id: Date.now(),
+                ...data,
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
             
-Nombre: ${data.firstName} ${data.lastName}
-Email: ${data.email}
-Teléfono: ${data.phone}
-Servicio: ${data.service}
-Fecha: ${data.date}
-Hora: ${data.time}
-Servicio Express: ${data.priority ? 'Sí' : 'No'}
-Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}
-${data.address ? `Dirección: ${data.address}` : ''}
-${data.description ? `Descripción: ${data.description}` : ''}`
-        };
-
-        return emailjs.send(
-            this.emailConfig.serviceId,
-            this.emailConfig.templateId,
-            templateParams
-        );
+            bookings.push(booking);
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+        } catch (error) {
+            console.warn('No se pudo guardar en localStorage:', error);
+            // No bloquear el proceso si falla localStorage
+        }
     }
 
     setLoadingState(loading) {
@@ -327,7 +341,12 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
     }
 
     getBookings() {
-        return JSON.parse(localStorage.getItem('bookings') || '[]');
+        try {
+            return JSON.parse(localStorage.getItem('bookings') || '[]');
+        } catch (error) {
+            console.warn('Error reading bookings:', error);
+            return [];
+        }
     }
 
     getBooking(id) {

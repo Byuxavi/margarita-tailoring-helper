@@ -1,5 +1,4 @@
 // js/modules/calendar.js
-// Módulo para integración con Google Calendar API
 
 class CalendarManager {
     constructor() {
@@ -11,46 +10,82 @@ class CalendarManager {
         this.gapi = null;
         this.isInitialized = false;
         this.isSignedIn = false;
+        this.initPromise = null; // Para evitar múltiples inicializaciones
     }
 
     /**
      * Inicializar Google Calendar API
      */
     async init() {
-        if (this.isInitialized) return;
+        // Si ya está inicializando, retornar la promesa existente
+        if (this.initPromise) {
+            return this.initPromise;
+        }
 
+        // Si ya está inicializado, retornar exitosamente
+        if (this.isInitialized) {
+            return Promise.resolve();
+        }
+
+        // Crear nueva promesa de inicialización
+        this.initPromise = this._performInit();
+        return this.initPromise;
+    }
+
+    async _performInit() {
         try {
+            // Verificar si estamos en un contexto seguro (HTTPS)
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                throw new Error('Google Calendar API requires HTTPS');
+            }
+
             // Cargar Google API desde CDN
             await this.loadGoogleAPI();
             
-            // Inicializar gapi
-            await new Promise((resolve, reject) => {
-                gapi.load('client:auth2', {
-                    callback: resolve,
-                    onerror: reject
-                });
-            });
+            // Inicializar gapi con timeout
+            await Promise.race([
+                new Promise((resolve, reject) => {
+                    gapi.load('client:auth2', {
+                        callback: resolve,
+                        onerror: reject,
+                        timeout: 5000 // 5 segundos de timeout
+                    });
+                }),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('GAPI load timeout')), 5000)
+                )
+            ]);
 
-            // Inicializar cliente
+            // Inicializar cliente con configuración corregida
             await gapi.client.init({
                 apiKey: this.API_KEY,
                 clientId: this.CLIENT_ID,
                 discoveryDocs: [this.DISCOVERY_DOC],
-                scope: this.SCOPES
+                scope: this.SCOPES,
+                // Configuraciones adicionales para evitar errores de CORS
+                hosted_domain: undefined,
+                ux_mode: 'popup',
+                redirect_uri: window.location.origin
             });
 
             this.gapi = gapi;
             this.isInitialized = true;
             console.log('Google Calendar API inicializada correctamente');
+            
+            return Promise.resolve();
 
         } catch (error) {
             console.error('Error inicializando Google Calendar API:', error);
-            throw new Error('Failed to initialize Google Calendar API');
+            this.isInitialized = false;
+            this.initPromise = null;
+            
+            // No lanzar error para no bloquear la aplicación
+            return Promise.resolve();
         }
     }
 
     /**
-     * Cargar Google API desde CDN
+     * Cargar Google API desde CDN con timeout
      */
     loadGoogleAPI() {
         return new Promise((resolve, reject) => {
@@ -61,8 +96,25 @@ class CalendarManager {
 
             const script = document.createElement('script');
             script.src = 'https://apis.google.com/js/api.js';
-            script.onload = resolve;
-            script.onerror = reject;
+            script.async = true;
+            script.defer = true;
+            
+            const timeout = setTimeout(() => {
+                script.remove();
+                reject(new Error('Google API load timeout'));
+            }, 10000);
+
+            script.onload = () => {
+                clearTimeout(timeout);
+                resolve();
+            };
+            
+            script.onerror = () => {
+                clearTimeout(timeout);
+                script.remove();
+                reject(new Error('Failed to load Google API'));
+            };
+            
             document.head.appendChild(script);
         });
     }
@@ -71,13 +123,26 @@ class CalendarManager {
      * Verificar si el usuario está autenticado
      */
     async checkAuthStatus() {
-        if (!this.isInitialized) {
-            await this.init();
-        }
+        try {
+            if (!this.isInitialized) {
+                await this.init();
+            }
 
-        const authInstance = this.gapi.auth2.getAuthInstance();
-        this.isSignedIn = authInstance.isSignedIn.get();
-        return this.isSignedIn;
+            if (!this.gapi || !this.gapi.auth2) {
+                return false;
+            }
+
+            const authInstance = this.gapi.auth2.getAuthInstance();
+            if (!authInstance) {
+                return false;
+            }
+
+            this.isSignedIn = authInstance.isSignedIn.get();
+            return this.isSignedIn;
+        } catch (error) {
+            console.warn('Error checking auth status:', error);
+            return false;
+        }
     }
 
     /**
@@ -89,10 +154,23 @@ class CalendarManager {
                 await this.init();
             }
 
+            if (!this.gapi || !this.gapi.auth2) {
+                throw new Error('Google API not initialized');
+            }
+
             const authInstance = this.gapi.auth2.getAuthInstance();
+            if (!authInstance) {
+                throw new Error('Auth instance not available');
+            }
             
             if (!authInstance.isSignedIn.get()) {
-                await authInstance.signIn();
+                // Configurar opciones de sign-in
+                const signInOptions = {
+                    scope: this.SCOPES,
+                    prompt: 'consent'
+                };
+                
+                await authInstance.signIn(signInOptions);
             }
 
             this.isSignedIn = true;
@@ -101,7 +179,10 @@ class CalendarManager {
 
         } catch (error) {
             console.error('Error en autenticación:', error);
-            throw new Error('Authentication failed');
+            this.isSignedIn = false;
+            
+            // Retornar false en lugar de lanzar error
+            return false;
         }
     }
 
@@ -112,10 +193,23 @@ class CalendarManager {
      */
     async createAppointmentEvent(appointmentData) {
         try {
+            // Verificar inicialización
+            if (!this.isInitialized) {
+                await this.init();
+            }
+
+            if (!this.gapi || !this.gapi.client || !this.gapi.client.calendar) {
+                console.warn('Google Calendar API not available');
+                return { success: false, error: 'API not available' };
+            }
+
             // Verificar autenticación
             const isAuthenticated = await this.checkAuthStatus();
             if (!isAuthenticated) {
-                await this.authenticate();
+                const authSuccess = await this.authenticate();
+                if (!authSuccess) {
+                    return { success: false, error: 'Authentication failed' };
+                }
             }
 
             // Preparar datos del evento
@@ -124,7 +218,8 @@ class CalendarManager {
             // Crear evento en Google Calendar
             const response = await this.gapi.client.calendar.events.insert({
                 calendarId: 'primary',
-                resource: event
+                resource: event,
+                sendNotifications: true
             });
 
             console.log('Evento creado exitosamente:', response);
@@ -137,21 +232,28 @@ class CalendarManager {
             };
 
         } catch (error) {
-            console.error('Error creando evento en calendario:', error);
+            console.warn('Error creando evento en calendario:', error);
             
-            // Si falla la autenticación, intentar una vez más
-            if (error.status === 401) {
+            // Intentar reautenticación una sola vez
+            if (error.status === 401 && !this._retryAuth) {
+                this._retryAuth = true;
                 try {
-                    await this.authenticate();
-                    return await this.createAppointmentEvent(appointmentData);
+                    const authSuccess = await this.authenticate();
+                    if (authSuccess) {
+                        const result = await this.createAppointmentEvent(appointmentData);
+                        this._retryAuth = false;
+                        return result;
+                    }
                 } catch (retryError) {
-                    console.error('Error en reintento de autenticación:', retryError);
+                    console.error('Error en reintento:', retryError);
                 }
+                this._retryAuth = false;
             }
 
             return {
                 success: false,
-                error: error.message || 'Failed to create calendar event'
+                error: error.message || 'Failed to create calendar event',
+                fallbackLink: this.generateCalendarLink(appointmentData)
             };
         }
     }
@@ -168,6 +270,11 @@ class CalendarManager {
 
         // Mapear nombres de servicios
         const serviceNames = {
+            'alteraciones-basicas': 'Alteraciones Básicas',
+            'reparaciones': 'Reparaciones',
+            'ajustes-formales': 'Ajustes Formales',
+            'vestidos-novia': 'Vestidos de Novia',
+            'diseno-personalizado': 'Diseño Personalizado',
             'hemming': 'Hemming Service',
             'zipper': 'Zipper Repair',
             'resizing': 'Clothing Resizing',
@@ -178,25 +285,25 @@ class CalendarManager {
         const serviceName = serviceNames[appointmentData.service] || appointmentData.service;
         
         // Construir descripción detallada
-        let description = `Appointment with Margarita's Tailoring Services\n\n`;
-        description += `Service: ${serviceName}\n`;
-        description += `Client: ${appointmentData.fullName}\n`;
-        description += `Phone: ${appointmentData.phone}\n`;
+        let description = `Cita con Margarita's Tailoring Services\n\n`;
+        description += `Servicio: ${serviceName}\n`;
+        description += `Cliente: ${appointmentData.fullName}\n`;
+        description += `Teléfono: ${appointmentData.phone}\n`;
         description += `Email: ${appointmentData.email}\n`;
         
         if (appointmentData.description) {
-            description += `\nService Details:\n${appointmentData.description}`;
+            description += `\nDetalles del servicio:\n${appointmentData.description}`;
         }
         
         if (appointmentData.notes) {
-            description += `\nAdditional Notes:\n${appointmentData.notes}`;
+            description += `\nNotas adicionales:\n${appointmentData.notes}`;
         }
         
-        description += `\n\nBooking ID: ${appointmentData.id}`;
-        description += `\n\nContact Information:`;
+        description += `\n\nID de reserva: ${appointmentData.id}`;
+        description += `\n\nInformación de contacto:`;
         description += `\nMargarita's Tailoring Services`;
-        description += `\n123 Main Street, Salt Lake City, UT 84101`;
-        description += `\nPhone: (801) 555-0123`;
+        description += `\n88 W 50 S Unit E2, Centerville, UT 84014`;
+        description += `\nTeléfono: (801) 555-0123`;
 
         return {
             summary: `${serviceName} - Margarita's Tailoring`,
@@ -209,7 +316,7 @@ class CalendarManager {
                 dateTime: endDateTime.toISOString(),
                 timeZone: 'America/Denver'
             },
-            location: '123 Main Street, Salt Lake City, UT 84101',
+            location: '88 W 50 S Unit E2, Centerville, UT 84014',
             attendees: [
                 {
                     email: appointmentData.email,
@@ -223,7 +330,8 @@ class CalendarManager {
                     { method: 'popup', minutes: 60 }       // 1 hora antes
                 ]
             },
-            colorId: '2' // Verde sage para citas de costura
+            colorId: '2', // Verde sage para citas de costura
+            status: 'confirmed'
         };
     }
 
@@ -233,45 +341,56 @@ class CalendarManager {
      * @returns {string} URL para añadir evento a Google Calendar
      */
     generateCalendarLink(appointmentData) {
-        const startDateTime = new Date(`${appointmentData.appointmentDate}T${appointmentData.appointmentTime}`);
-        const endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000));
+        try {
+            const startDateTime = new Date(`${appointmentData.appointmentDate}T${appointmentData.appointmentTime}`);
+            const endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000));
 
-        // Formatear fechas para URL de Google Calendar
-        const formatDateForGoogle = (date) => {
-            return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-        };
+            // Formatear fechas para URL de Google Calendar
+            const formatDateForGoogle = (date) => {
+                return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+            };
 
-        const serviceNames = {
-            'hemming': 'Hemming Service',
-            'zipper': 'Zipper Repair',
-            'resizing': 'Clothing Resizing',
-            'custom': 'Custom Clothing',
-            'alterations': 'General Alterations'
-        };
+            const serviceNames = {
+                'alteraciones-basicas': 'Alteraciones Básicas',
+                'reparaciones': 'Reparaciones',
+                'ajustes-formales': 'Ajustes Formales',
+                'vestidos-novia': 'Vestidos de Novia',
+                'diseno-personalizado': 'Diseño Personalizado'
+            };
 
-        const serviceName = serviceNames[appointmentData.service] || appointmentData.service;
-        
-        const params = new URLSearchParams({
-            action: 'TEMPLATE',
-            text: `${serviceName} - Margarita's Tailoring`,
-            dates: `${formatDateForGoogle(startDateTime)}/${formatDateForGoogle(endDateTime)}`,
-            details: `Appointment with Margarita's Tailoring Services\nService: ${serviceName}\nClient: ${appointmentData.fullName}\nPhone: ${appointmentData.phone}`,
-            location: '123 Main Street, Salt Lake City, UT 84101',
-            ctz: 'America/Denver'
-        });
+            const serviceName = serviceNames[appointmentData.service] || appointmentData.service;
+            
+            const params = new URLSearchParams({
+                action: 'TEMPLATE',
+                text: `${serviceName} - Margarita's Tailoring`,
+                dates: `${formatDateForGoogle(startDateTime)}/${formatDateForGoogle(endDateTime)}`,
+                details: `Cita con Margarita's Tailoring Services\nServicio: ${serviceName}\nCliente: ${appointmentData.fullName}\nTeléfono: ${appointmentData.phone}`,
+                location: '88 W 50 S Unit E2, Centerville, UT 84014',
+                ctz: 'America/Denver'
+            });
 
-        return `https://calendar.google.com/calendar/render?${params.toString()}`;
+            return `https://calendar.google.com/calendar/render?${params.toString()}`;
+        } catch (error) {
+            console.error('Error generating calendar link:', error);
+            return 'https://calendar.google.com/calendar/';
+        }
     }
 
     /**
      * Cerrar sesión de Google
      */
     async signOut() {
-        if (this.isInitialized && this.gapi) {
-            const authInstance = this.gapi.auth2.getAuthInstance();
-            await authInstance.signOut();
-            this.isSignedIn = false;
-            console.log('Usuario desconectado del calendario');
+        try {
+            if (this.isInitialized && this.gapi && this.gapi.auth2) {
+                const authInstance = this.gapi.auth2.getAuthInstance();
+                if (authInstance) {
+                    await authInstance.signOut();
+                    this.isSignedIn = false;
+                    console.log('Usuario desconectado del calendario');
+                }
+            }
+        } catch (error) {
+            console.error('Error signing out:', error);
         }
     }
 
@@ -279,23 +398,41 @@ class CalendarManager {
      * Obtener información del usuario autenticado
      */
     getCurrentUser() {
-        if (this.isInitialized && this.isSignedIn) {
-            const authInstance = this.gapi.auth2.getAuthInstance();
-            const user = authInstance.currentUser.get();
-            const profile = user.getBasicProfile();
-            
-            return {
-                id: profile.getId(),
-                name: profile.getName(),
-                email: profile.getEmail(),
-                image: profile.getImageUrl()
-            };
+        try {
+            if (this.isInitialized && this.isSignedIn && this.gapi && this.gapi.auth2) {
+                const authInstance = this.gapi.auth2.getAuthInstance();
+                if (authInstance) {
+                    const user = authInstance.currentUser.get();
+                    const profile = user.getBasicProfile();
+                    
+                    return {
+                        id: profile.getId(),
+                        name: profile.getName(),
+                        email: profile.getEmail(),
+                        image: profile.getImageUrl()
+                    };
+                }
+            }
+        } catch (error) {
+            console.error('Error getting current user:', error);
         }
         return null;
+    }
+
+    /**
+     * Método para verificar si el servicio está disponible
+     */
+    isAvailable() {
+        return this.isInitialized && this.gapi && this.gapi.client && this.gapi.client.calendar;
     }
 }
 
 // Crear instancia única del manager
 const calendarManager = new CalendarManager();
+
+// Hacer disponible globalmente
+if (typeof window !== 'undefined') {
+    window.calendarManager = calendarManager;
+}
 
 export default calendarManager;
