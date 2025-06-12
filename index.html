@@ -1,200 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Margarita's Tailoring Services - Professional clothing alterations and custom tailoring in Utah">
-    <meta name="keywords" content="tailoring, alterations, hemming, zipper repair, custom clothing, Utah">
-    <title>Margarita's Tailoring Helper - Professional Tailoring Services</title>
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-    
-    <!-- CSS -->
-    <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/animations.css">
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="assets/img/favicon.ico">
+    <title>Margarita's Tailoring - Sastrería Profesional en Utah</title>
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-    <!-- Header Navigation -->
-    <header class="header">
-        <nav class="navbar">
-            <div class="nav-container">
-                <div class="nav-logo">
-                    <img src="assets/img/logo.png" alt="Margarita's Tailoring" class="logo-img">
-                    <h1 class="logo-text">Margarita's Tailoring</h1>
-                </div>
-                <ul class="nav-menu">
-                    <li class="nav-item">
-                        <a href="index.html" class="nav-link active">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="booking.html" class="nav-link">Book Appointment</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="chat.html" class="nav-link">Live Chat</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="comments.html" class="nav-link">Reviews</a>
-                    </li>
-                </ul>
-                <div class="hamburger">
-                    <span class="bar"></span>
-                    <span class="bar"></span>
-                    <span class="bar"></span>
-                </div>
+    <header>
+        <nav>
+            <div class="logo">Margarita's Tailoring</div>
+            <div class="nav-links">
+                <a href="#servicios">Servicios</a>
+                <a href="#ubicacion">Ubicación</a>
+                <a href="booking.html" class="btn-primary">Reservar Cita</a>
+                <button id="langToggle">EN</button>
             </div>
         </nav>
     </header>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-container">
+    <main>
+        <section class="hero">
             <div class="hero-content">
-                <h2 class="hero-title">Professional Tailoring Services in Utah</h2>
-                <p class="hero-description">Expert alterations, custom clothing, and repairs with personalized service. Breaking language barriers to serve our diverse community.</p>
-                <div class="hero-buttons">
-                    <a href="booking.html" class="btn btn-primary">Book Appointment</a>
-                    <a href="chat.html" class="btn btn-secondary">Start Chat</a>
-                </div>
+                <h1 data-es="Sastrería Profesional en Utah" data-en="Professional Tailoring in Utah">Sastrería Profesional en Utah</h1>
+                <p data-es="Más de 15 años de experiencia creando y ajustando prendas perfectas" data-en="Over 15 years of experience creating and tailoring perfect garments">Más de 15 años de experiencia creando y ajustando prendas perfectas</p>
+                <a href="booking.html" class="btn-hero" data-es="Agendar Cita" data-en="Book Appointment">Agendar Cita</a>
             </div>
-            <div class="hero-image">
-                <img src="assets/img/hero-tailoring.jpg" alt="Professional tailoring services" class="hero-img">
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Services Section -->
-    <section class="services" id="services">
-        <div class="container">
-            <h2 class="section-title">Our Services</h2>
+        <section id="servicios" class="services">
+            <h2 data-es="Nuestros Servicios" data-en="Our Services">Nuestros Servicios</h2>
             <div class="services-grid">
-                <!-- Services will be loaded dynamically via JavaScript -->
-                <div class="service-card" data-service="hemming">
-                    <div class="service-icon">
-                        <img src="assets/img/icons/hemming.svg" alt="Hemming service">
-                    </div>
-                    <h3 class="service-title">Hemming</h3>
-                    <p class="service-description">Professional hemming for pants, skirts, and dresses</p>
-                    <span class="service-price">Starting at $15</span>
+                <div class="service-card">
+                    <h3 data-es="Ajustes de Ropa" data-en="Clothing Alterations">Ajustes de Ropa</h3>
+                    <p data-es="Pantalones, faldas, vestidos y más" data-en="Pants, skirts, dresses and more">Pantalones, faldas, vestidos y más</p>
+                    <span class="price">$15 - $45</span>
                 </div>
-                
-                <div class="service-card" data-service="zipper">
-                    <div class="service-icon">
-                        <img src="assets/img/icons/zipper.svg" alt="Zipper repair service">
-                    </div>
-                    <h3 class="service-title">Zipper Repair</h3>
-                    <p class="service-description">Fix or replace zippers on jackets, bags, and clothing</p>
-                    <span class="service-price">Starting at $20</span>
+                <div class="service-card">
+                    <h3 data-es="Reparaciones" data-en="Repairs">Reparaciones</h3>
+                    <p data-es="Cremalleras, botones, zurcido" data-en="Zippers, buttons, darning">Cremalleras, botones, zurcido</p>
+                    <span class="price">$10 - $30</span>
                 </div>
-                
-                <div class="service-card" data-service="resizing">
-                    <div class="service-icon">
-                        <img src="assets/img/icons/resize.svg" alt="Resizing service">
-                    </div>
-                    <h3 class="service-title">Resizing</h3>
-                    <p class="service-description">Professional resizing and alterations for perfect fit</p>
-                    <span class="service-price">Starting at $25</span>
+                <div class="service-card">
+                    <h3 data-es="Confección a Medida" data-en="Custom Tailoring">Confección a Medida</h3>
+                    <p data-es="Vestidos, trajes, ropa formal" data-en="Dresses, suits, formal wear">Vestidos, trajes, ropa formal</p>
+                    <span class="price">$80 - $300</span>
                 </div>
-                
-                <div class="service-card" data-service="custom">
-                    <div class="service-icon">
-                        <img src="assets/img/icons/custom.svg" alt="Custom clothing service">
-                    </div>
-                    <h3 class="service-title">Custom Clothing</h3>
-                    <p class="service-description">Bespoke clothing designed and tailored to your specifications</p>
-                    <span class="service-price">Quote on request</span>
-                </div>
-                
-                <div class="service-card" data-service="alterations">
-                    <div class="service-icon">
-                        <img src="assets/img/icons/alterations.svg" alt="General alterations service">
-                    </div>
-                    <h3 class="service-title">General Alterations</h3>
-                    <p class="service-description">Various clothing modifications and adjustments</p>
-                    <span class="service-price">Starting at $18</span>
+                <div class="service-card">
+                    <h3 data-es="Arreglos Express" data-en="Express Alterations">Arreglos Express</h3>
+                    <p data-es="Servicio urgente en 24-48 horas" data-en="Urgent service in 24-48 hours">Servicio urgente en 24-48 horas</p>
+                    <span class="price">+$20</span>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Location Section -->
-    <section class="location" id="location">
-        <div class="container">
-            <h2 class="section-title">Visit Our Shop</h2>
+        <section id="ubicacion" class="location">
+            <h2 data-es="Nuestra Ubicación" data-en="Our Location">Nuestra Ubicación</h2>
             <div class="location-content">
                 <div class="location-info">
-                    <h3>Margarita's Tailoring Shop</h3>
-                    <div class="location-details">
-                        <div class="detail-item">
-                            <strong>Address:</strong>
-                            <p>123 Main Street, Salt Lake City, UT 84101</p>
-                        </div>
-                        <div class="detail-item">
-                            <strong>Hours:</strong>
-                            <p>Monday - Friday: 9:00 AM - 6:00 PM<br>
-                               Saturday: 10:00 AM - 4:00 PM<br>
-                               Sunday: Closed</p>
-                        </div>
-                        <div class="detail-item">
-                            <strong>Phone:</strong>
-                            <p>(801) 555-0123</p>
-                        </div>
-                        <div class="detail-item">
-                            <strong>Email:</strong>
-                            <p>info@margaritastailoring.com</p>
-                        </div>
+                    <div class="address">
+                        <h3 data-es="Dirección" data-en="Address">Dirección</h3>
+                        <p>88 W 50 S Unit E2<br>Centerville, UTAH 84014</p>
+                    </div>
+                    <div class="hours">
+                        <h3 data-es="Horarios" data-en="Hours">Horarios</h3>
+                        <p data-es="Lunes - Viernes: 9:00 AM - 6:00 PM<br>Sábado: 10:00 AM - 4:00 PM<br>Domingo: Cerrado" data-en="Monday - Friday: 9:00 AM - 6:00 PM<br>Saturday: 10:00 AM - 4:00 PM<br>Sunday: Closed">Lunes - Viernes: 9:00 AM - 6:00 PM<br>Sábado: 10:00 AM - 4:00 PM<br>Domingo: Cerrado</p>
+                    </div>
+                    <div class="contact">
+                        <h3 data-es="Contacto" data-en="Contact">Contacto</h3>
+                        <p>📞 (801) 555-0123<br>📧 margarita@tailoring.com</p>
                     </div>
                 </div>
-                <div class="map-container">
-                    <div id="google-map" class="google-map">
-                        <!-- Google Maps will be loaded here -->
-                    </div>
-                </div>
+                <div id="map" class="map-container"></div>
             </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>Margarita's Tailoring</h3>
-                    <p>Professional tailoring services with a personal touch. Serving the Utah community with quality craftsmanship.</p>
-                </div>
-                <div class="footer-section">
-                    <h4>Quick Links</h4>
-                    <ul class="footer-links">
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="booking.html">Book Appointment</a></li>
-                        <li><a href="chat.html">Live Chat</a></li>
-                        <li><a href="comments.html">Reviews</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h4>Services</h4>
-                    <ul class="footer-links">
-                        <li><a href="#services">Hemming</a></li>
-                        <li><a href="#services">Zipper Repair</a></li>
-                        <li><a href="#services">Resizing</a></li>
-                        <li><a href="#services">Custom Clothing</a></li>
-                    </ul>
-                </div>
-                <div class="footer-section">
-                    <h4>Contact</h4>
-                    <p>123 Main Street<br>Salt Lake City, UT 84101<br>(801) 555-0123</p>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2024 Margarita's Tailoring Helper. All rights reserved.</p>
-            </div>
-        </div>
+    <footer>
+        <p>&copy; 2025 Margarita's Tailoring - <span data-es="Todos los derechos reservados" data-en="All rights reserved">Todos los derechos reservados</span></p>
     </footer>
 
-    <!-- JavaScript -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
