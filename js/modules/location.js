@@ -1,4 +1,4 @@
-// Location.js - Google Maps Integration
+// Location.js - 
 const API_KEY = 'AIzaSyCyrePzpyKk0TyxmsOD_DfsugNzsqj100c'; // Mismo API key del calendar
 const MARGARITA_LOCATION = {
   lat: 40.918000,

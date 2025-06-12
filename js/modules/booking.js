@@ -1,9 +1,9 @@
-// booking.js - Fixed Version
+// booking.js 
 class BookingManager {
     constructor() {
         this.emailConfig = {
             serviceId: 'service_xsakmyn',
-            templateId: 'template_1dt15su',
+            templateId: 'template_1dt15su', 
             publicKey: 'vdWmzVZ71cnknMJPF'
         };
         this.isInitialized = false;
@@ -164,6 +164,7 @@ class BookingManager {
     async handleSubmit(form) {
         if (!this.isInitialized) {
             console.warn('BookingManager not initialized yet');
+            this.showErrorNotification('Sistema no inicializado. Por favor recarga la página.');
             return;
         }
 
@@ -177,248 +178,150 @@ class BookingManager {
                 throw new Error('Por favor completa todos los campos requeridos');
             }
 
-            // Guardar reserva primero
+            console.log('📧 Enviando email con datos:', bookingData);
+
+            // Enviar email principal al negocio
+            await this.sendBookingEmail(bookingData);
+
+            // Guardar reserva localmente (opcional, no crítico)
             this.saveBooking(bookingData);
-
-            // Enviar notificaciones por email
-            await this.sendNotifications(bookingData);
-
-            // Intentar agregar a Google Calendar (no crítico)
-            this.tryAddToGoogleCalendar(bookingData).catch(error => {
-                console.warn('Calendar integration failed:', error);
-            });
 
             // Mostrar éxito
             this.showModal();
             form.reset();
             this.hideAddressSection();
 
-            // Mostrar notificación de éxito
-            this.showSuccessNotification('¡Reserva enviada exitosamente!');
+            this.showSuccessNotification('¡Reserva enviada exitosamente! Recibirás confirmación pronto.');
 
         } catch (error) {
-            console.error('Error submitting booking:', error);
-            this.showErrorNotification('Hubo un error al enviar tu reserva. Por favor intenta nuevamente.');
+            console.error('❌ Error enviando reserva:', error);
+            this.showErrorNotification('Error al enviar la reserva. Por favor intenta nuevamente o contacta por teléfono.');
         } finally {
             this.setLoadingState(false);
         }
     }
 
-    // Método mejorado para Google Calendar (no bloquea el proceso)
-    async tryAddToGoogleCalendar(data) {
-        try {
-            // Verificar si CalendarManager está disponible y inicializado
-            if (!window.calendarManager) {
-                console.warn('CalendarManager not available');
-                return null;
-            }
-
-            const appointmentData = {
-                id: Date.now(),
-                fullName: `${data.firstName} ${data.lastName}`,
-                email: data.email,
-                phone: data.phone,
-                service: data.service,
-                appointmentDate: data.date,
-                appointmentTime: data.time,
-                description: data.description || '',
-                notes: data.address ? `Recolección en: ${data.address}` : null
-            };
-
-            const result = await window.calendarManager.createAppointmentEvent(appointmentData);
-            
-            if (result.success) {
-                console.log('✅ Evento agregado a Google Calendar:', result.eventId);
-                this.showSuccessNotification('¡También se agregó a tu Google Calendar!');
-            } else {
-                console.warn('⚠️ Calendar integration failed:', result.error);
-                // Mostrar enlace de fallback si está disponible
-                if (result.fallbackLink) {
-                    this.showCalendarFallback(result.fallbackLink);
-                }
-            }
-
-            return result;
-
-        } catch (error) {
-            console.warn('Calendar integration error:', error);
-            return null;
-        }
-    }
-
-    showCalendarFallback(link) {
-        const modal = document.getElementById('successModal');
-        if (modal) {
-            const existingLink = modal.querySelector('.calendar-fallback');
-            if (!existingLink) {
-                const linkElement = document.createElement('div');
-                linkElement.className = 'calendar-fallback';
-                linkElement.innerHTML = `
-                    <p class="text-sm text-gray-600 mt-4">
-                        <a href="${link}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
-                            Haz clic aquí para agregar manualmente a tu calendario
-                        </a>
-                    </p>
-                `;
-                modal.querySelector('.modal-content').appendChild(linkElement);
-            }
-        }
-    }
-
-    // Método mejorado para enviar notificaciones
-    async sendNotifications(data) {
+    async sendBookingEmail(data) {
         if (!window.emailjs) {
-            throw new Error('EmailJS not available');
+            throw new Error('EmailJS no está disponible');
         }
 
-        const promises = [];
-
-        // Email de confirmación al cliente
-        promises.push(
-            this.sendConfirmationEmail(data).catch(error => {
-                console.error('Error sending confirmation email:', error);
-                return { error: 'confirmation_failed' };
-            })
-        );
-
-        // Email de notificación al negocio
-        promises.push(
-            this.sendBusinessNotification(data).catch(error => {
-                console.error('Error sending business notification:', error);
-                return { error: 'business_notification_failed' };
-            })
-        );
-
-        const results = await Promise.allSettled(promises);
-        
-        // Verificar resultados
-        const confirmationResult = results[0];
-        const businessResult = results[1];
-
-        let hasErrors = false;
-
-        if (confirmationResult.status === 'rejected' || confirmationResult.value?.error) {
-            console.warn('Confirmation email failed');
-            hasErrors = true;
-        }
-
-        if (businessResult.status === 'rejected' || businessResult.value?.error) {
-            console.warn('Business notification failed');
-            hasErrors = true;
-        }
-
-        if (hasErrors) {
-            console.warn('Some email notifications failed, but booking was saved');
-        } else {
-            console.log('✅ All email notifications sent successfully');
-        }
-    }
-
-    // Email de confirmación para el cliente
-    async sendConfirmationEmail(data) {
+        // Mapear nombres de servicios para mostrar en español
         const serviceNames = {
-            'alteraciones-basicas': 'Alteraciones Básicas',
-            'reparaciones': 'Reparaciones',
-            'ajustes-formales': 'Ajustes Formales',
-            'vestidos-novia': 'Vestidos de Novia',
-            'diseno-personalizado': 'Diseño Personalizado',
-            'hemming': 'Hemming Service',
-            'zipper': 'Zipper Repair',
-            'resizing': 'Clothing Resizing',
-            'custom': 'Custom Clothing',
-            'alterations': 'General Alterations'
+            'alteraciones-basicas': 'Alteraciones Básicas ($25-50)',
+            'reparaciones': 'Reparaciones ($15-35)', 
+            'ajustes-formales': 'Ajustes Formales ($40-80)',
+            'vestidos-novia': 'Vestidos de Novia ($150-300)',
+            'diseno-personalizado': 'Diseño Personalizado (Cotización)'
         };
 
         const serviceName = serviceNames[data.service] || data.service;
 
+        // Preparar parámetros que coinciden exactamente con tu plantilla HTML
         const templateParams = {
-            to_email: data.email,
-            to_name: `${data.firstName} ${data.lastName}`,
-            from_name: 'Margarita\'s Tailoring',
-            service: serviceName,
-            date: data.date,
-            time: data.time,
-            priority: data.priority ? 'Sí' : 'No',
-            pickup: data.pickup ? 'Sí' : 'No',
-            address: data.address || 'N/A',
-            description: data.description || 'Sin descripción adicional',
-            subject: 'Confirmación de Cita - Margarita\'s Tailoring',
-            message: `Estimado/a ${data.firstName},
-
-Su cita ha sido confirmada exitosamente:
-
-📅 Fecha: ${data.date}
-🕐 Hora: ${data.time}
-✂️ Servicio: ${serviceName}
-⚡ Servicio Express: ${data.priority ? 'Sí' : 'No'}
-🚗 Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}
-${data.address ? `📍 Dirección: ${data.address}` : ''}
-
-${data.description ? `Detalles adicionales: ${data.description}` : ''}
-
-Si necesita hacer cambios, contáctenos:
-📞 (801) 555-0123
-📧 info@margaritastailoring.com
-
-¡Gracias por elegir Margarita's Tailoring!`
-        };
-
-        return emailjs.send(
-            this.emailConfig.serviceId,
-            'template_confirmation',
-            templateParams
-        );
-    }
-
-    // Email de notificación para el negocio
-    async sendBusinessNotification(data) {
-        const serviceNames = {
-            'alteraciones-basicas': 'Alteraciones Básicas',
-            'reparaciones': 'Reparaciones',
-            'ajustes-formales': 'Ajustes Formales',
-            'vestidos-novia': 'Vestidos de Novia',
-            'diseno-personalizado': 'Diseño Personalizado',
-            'hemming': 'Hemming Service',
-            'zipper': 'Zipper Repair',
-            'resizing': 'Clothing Resizing',
-            'custom': 'Custom Clothing',
-            'alterations': 'General Alterations'
-        };
-
-        const serviceName = serviceNames[data.service] || data.service;
-
-        const templateParams = {
-            to_email: 'info@margaritastailoring.com',
+            // Variables principales de tu plantilla
             from_name: `${data.firstName} ${data.lastName}`,
             from_email: data.email,
             phone: data.phone,
             service: serviceName,
-            date: data.date,
-            time: data.time,
+            date: this.formatDate(data.date),
+            time: this.formatTime(data.time),
             priority: data.priority ? 'Sí' : 'No',
             pickup: data.pickup ? 'Sí' : 'No',
-            address: data.address || 'N/A',
-            description: data.description || 'Sin descripción adicional',
-            subject: 'Nueva Reserva de Cita',
-            message: `Nueva reserva de cita:
+            address: data.address || '', // Vacío si no hay dirección
+            description: data.description || '', // Vacío si no hay descripción
             
-Nombre: ${data.firstName} ${data.lastName}
-Email: ${data.email}
-Teléfono: ${data.phone}
-Servicio: ${serviceName}
-Fecha: ${data.date}
-Hora: ${data.time}
-Servicio Express: ${data.priority ? 'Sí' : 'No'}
-Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}
-${data.address ? `Dirección: ${data.address}` : ''}
-${data.description ? `Descripción: ${data.description}` : ''}`
+            // Variables adicionales para el subject y mensaje general
+            to_email: 'info@margaritastailoring.com', // Tu email de negocio
+            subject: `Nueva Reserva - ${data.firstName} ${data.lastName}`,
+            
+            // Mensaje completo como backup
+            message: this.createFullMessage(data, serviceName)
         };
 
-        return emailjs.send(
-            this.emailConfig.serviceId,
-            this.emailConfig.templateId,
-            templateParams
-        );
+        console.log('📧 Parámetros del email:', templateParams);
+
+        try {
+            const result = await emailjs.send(
+                this.emailConfig.serviceId,
+                this.emailConfig.templateId,
+                templateParams
+            );
+
+            console.log('✅ Email enviado exitosamente:', result);
+            return result;
+
+        } catch (error) {
+            console.error('❌ Error enviando email:', error);
+            
+            // Proporcionar más información sobre el error
+            let errorMessage = 'Error desconocido enviando email';
+            
+            if (error.status === 400) {
+                errorMessage = 'Error en los datos del formulario';
+            } else if (error.status === 401) {
+                errorMessage = 'Error de autenticación con EmailJS';
+            } else if (error.status === 403) {
+                errorMessage = 'Acceso denegado a EmailJS';
+            } else if (error.status >= 500) {
+                errorMessage = 'Error del servidor de EmailJS';
+            }
+
+            throw new Error(errorMessage);
+        }
+    }
+
+    // Métodos utilitarios para formatear datos
+    formatDate(dateString) {
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return dateString;
+        }
+    }
+
+    formatTime(timeString) {
+        try {
+            const [hours, minutes] = timeString.split(':');
+            const date = new Date();
+            date.setHours(parseInt(hours), parseInt(minutes));
+            return date.toLocaleTimeString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return timeString;
+        }
+    }
+
+    createFullMessage(data, serviceName) {
+        let message = `NUEVA RESERVA DE CITA\n\n`;
+        message += `Nombre: ${data.firstName} ${data.lastName}\n`;
+        message += `Email: ${data.email}\n`;
+        message += `Teléfono: ${data.phone}\n`;
+        message += `Servicio: ${serviceName}\n`;
+        message += `Fecha: ${this.formatDate(data.date)}\n`;
+        message += `Hora: ${this.formatTime(data.time)}\n`;
+        message += `Servicio Express: ${data.priority ? 'Sí' : 'No'}\n`;
+        message += `Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}\n`;
+        
+        if (data.address) {
+            message += `Dirección de recolección: ${data.address}\n`;
+        }
+        
+        if (data.description) {
+            message += `\nDescripción adicional:\n${data.description}\n`;
+        }
+
+        message += `\n---\nReserva realizada el ${new Date().toLocaleString('es-ES')}`;
+        
+        return message;
     }
 
     validateForm(data) {
@@ -426,24 +329,50 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
         
         for (const field of required) {
             if (!data[field] || data[field].trim() === '') {
-                console.error(`Required field missing: ${field}`);
+                console.error(`❌ Campo requerido faltante: ${field}`);
+                this.showErrorNotification(`El campo ${this.getFieldDisplayName(field)} es requerido`);
                 return false;
             }
         }
 
+        // Validar formato de email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(data.email)) {
-            console.error('Invalid email format');
+            console.error('❌ Formato de email inválido');
+            this.showErrorNotification('Por favor ingresa un email válido');
             return false;
         }
 
+        // Validar teléfono básico
         const phoneRegex = /^[\d\s\-\(\)\+]+$/;
-        if (!phoneRegex.test(data.phone)) {
-            console.error('Invalid phone format');
+        if (!phoneRegex.test(data.phone.trim())) {
+            console.error('❌ Formato de teléfono inválido');
+            this.showErrorNotification('Por favor ingresa un teléfono válido');
+            return false;
+        }
+
+        // Si requiere recolección, validar dirección
+        if (data.pickup && (!data.address || data.address.trim() === '')) {
+            console.error('❌ Dirección requerida para recolección');
+            this.showErrorNotification('La dirección es requerida para el servicio de recolección');
             return false;
         }
 
         return true;
+    }
+
+    getFieldDisplayName(field) {
+        const fieldNames = {
+            firstName: 'Nombre',
+            lastName: 'Apellido', 
+            email: 'Email',
+            phone: 'Teléfono',
+            service: 'Servicio',
+            date: 'Fecha',
+            time: 'Hora',
+            address: 'Dirección'
+        };
+        return fieldNames[field] || field;
     }
 
     saveBooking(data) {
@@ -458,9 +387,9 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
             
             bookings.push(booking);
             localStorage.setItem('bookings', JSON.stringify(bookings));
-            console.log('✅ Booking saved to localStorage');
+            console.log('✅ Reserva guardada localmente');
         } catch (error) {
-            console.warn('Could not save to localStorage:', error);
+            console.warn('⚠️ No se pudo guardar localmente:', error);
             // No bloquear el proceso si falla localStorage
         }
     }
@@ -483,7 +412,7 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
         }
     }
 
-    // Métodos de notificación mejorados
+    // Métodos de notificación
     showSuccessNotification(message) {
         this.showNotification(message, 'success');
     }
@@ -500,14 +429,54 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
             // Fallback simple
             console.log(`${type.toUpperCase()}: ${message}`);
             
-            // Mostrar alert como último recurso
-            if (type === 'error') {
-                alert(message);
-            }
+            // Crear notificación visual simple
+            this.createSimpleNotification(message, type);
         }
     }
 
-    // Métodos utilitarios
+    createSimpleNotification(message, type) {
+        // Crear una notificación visual básica si no hay sistema principal
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background-color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Animar entrada
+        setTimeout(() => {
+            notification.style.transform = 'translateX(0)';
+        }, 10);
+        
+        // Auto-remover
+        setTimeout(() => {
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }, type === 'error' ? 8000 : 5000);
+    }
+
+    // Métodos utilitarios públicos
+    isReady() {
+        return this.isInitialized && window.emailjs;
+    }
+
     getBookings() {
         try {
             return JSON.parse(localStorage.getItem('bookings') || '[]');
@@ -516,28 +485,13 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
             return [];
         }
     }
-
-    getBooking(id) {
-        const bookings = this.getBookings();
-        return bookings.find(booking => booking.id === id);
-    }
-
-    // Método para verificar estado
-    isReady() {
-        return this.isInitialized && window.emailjs;
-    }
-
-    // Método para reinicializar si es necesario
-    async reinitialize() {
-        this.isInitialized = false;
-        return this.init();
-    }
 }
 
 // Inicializar BookingManager cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('bookingForm')) {
         window.bookingManager = new BookingManager();
+        console.log('🚀 BookingManager inicializado');
     }
 });
 

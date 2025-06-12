@@ -1,4 +1,4 @@
-// main.js - Fixed Version
+// main.js - 
 import { initLocation } from './modules/location.js';
 import BookingManager from './modules/booking.js';
 import calendarManager from './modules/calendar.js';

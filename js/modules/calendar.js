@@ -1,4 +1,4 @@
-// js/modules/calendar.js - Google Calendar API Corregido
+// js/modules/calendar.js 
 
 class CalendarManager {
     constructor() {
