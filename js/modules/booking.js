@@ -1,4 +1,4 @@
-// Booking Module 
+// booking.js - Fixed Version
 class BookingManager {
     constructor() {
         this.emailConfig = {
@@ -6,35 +6,71 @@ class BookingManager {
             templateId: 'template_1dt15su',
             publicKey: 'vdWmzVZ71cnknMJPF'
         };
+        this.isInitialized = false;
         this.init();
     }
 
-    init() {
-        this.setupForm();
-        this.setupDateValidation();
-        this.setupConditionalFields();
-        this.setupModal();
-        this.loadEmailJS();
-        // Removido loadGoogleCalendar() - se maneja desde CalendarManager
+    async init() {
+        try {
+            await this.setupForm();
+            this.setupDateValidation();
+            this.setupConditionalFields();
+            this.setupModal();
+            await this.loadEmailJS();
+            this.isInitialized = true;
+            console.log('✅ BookingManager initialized successfully');
+        } catch (error) {
+            console.error('❌ Error initializing BookingManager:', error);
+        }
     }
 
-    loadEmailJS() {
-        if (!window.emailjs) {
+    async loadEmailJS() {
+        return new Promise((resolve, reject) => {
+            if (window.emailjs) {
+                resolve();
+                return;
+            }
+
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
-            script.onload = () => emailjs.init(this.emailConfig.publicKey);
+            
+            const timeout = setTimeout(() => {
+                script.remove();
+                reject(new Error('EmailJS load timeout'));
+            }, 10000);
+
+            script.onload = () => {
+                clearTimeout(timeout);
+                try {
+                    emailjs.init(this.emailConfig.publicKey);
+                    console.log('✅ EmailJS loaded and initialized');
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            script.onerror = () => {
+                clearTimeout(timeout);
+                script.remove();
+                reject(new Error('Failed to load EmailJS'));
+            };
+            
             document.head.appendChild(script);
-        }
+        });
     }
 
     setupForm() {
         const form = document.getElementById('bookingForm');
-        if (form) {
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleSubmit(form);
-            });
+        if (!form) {
+            console.warn('Booking form not found');
+            return;
         }
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleSubmit(form);
+        });
 
         const resetBtn = document.getElementById('resetBtn');
         if (resetBtn) {
@@ -126,7 +162,10 @@ class BookingManager {
     }
 
     async handleSubmit(form) {
-        const submitBtn = document.getElementById('submitBtn');
+        if (!this.isInitialized) {
+            console.warn('BookingManager not initialized yet');
+            return;
+        }
 
         try {
             this.setLoadingState(true);
@@ -138,78 +177,165 @@ class BookingManager {
                 throw new Error('Por favor completa todos los campos requeridos');
             }
 
-            // Guardar reserva
+            // Guardar reserva primero
             this.saveBooking(bookingData);
 
-            // Enviar emails (tanto confirmación como notificación)
+            // Enviar notificaciones por email
             await this.sendNotifications(bookingData);
 
-            // Intentar agregar a Google Calendar (opcional)
-            await this.tryAddToGoogleCalendar(bookingData);
+            // Intentar agregar a Google Calendar (no crítico)
+            this.tryAddToGoogleCalendar(bookingData).catch(error => {
+                console.warn('Calendar integration failed:', error);
+            });
 
+            // Mostrar éxito
             this.showModal();
             form.reset();
             this.hideAddressSection();
 
+            // Mostrar notificación de éxito
+            this.showSuccessNotification('¡Reserva enviada exitosamente!');
+
         } catch (error) {
             console.error('Error submitting booking:', error);
-            alert('Hubo un error al enviar tu reserva. Por favor intenta nuevamente.');
+            this.showErrorNotification('Hubo un error al enviar tu reserva. Por favor intenta nuevamente.');
         } finally {
             this.setLoadingState(false);
         }
     }
 
-    // NUEVO - Método para intentar agregar a Google Calendar sin bloquear el proceso
+    // Método mejorado para Google Calendar (no bloquea el proceso)
     async tryAddToGoogleCalendar(data) {
         try {
-            // Verificar si CalendarManager está disponible
-            if (window.calendarManager) {
-                const appointmentData = {
-                    id: Date.now(),
-                    fullName: `${data.firstName} ${data.lastName}`,
-                    email: data.email,
-                    phone: data.phone,
-                    service: data.service,
-                    appointmentDate: data.date,
-                    appointmentTime: data.time,
-                    description: data.description,
-                    notes: data.address ? `Recolección en: ${data.address}` : null
-                };
-
-                await window.calendarManager.createAppointmentEvent(appointmentData);
-                console.log('Evento agregado a Google Calendar');
+            // Verificar si CalendarManager está disponible y inicializado
+            if (!window.calendarManager) {
+                console.warn('CalendarManager not available');
+                return null;
             }
+
+            const appointmentData = {
+                id: Date.now(),
+                fullName: `${data.firstName} ${data.lastName}`,
+                email: data.email,
+                phone: data.phone,
+                service: data.service,
+                appointmentDate: data.date,
+                appointmentTime: data.time,
+                description: data.description || '',
+                notes: data.address ? `Recolección en: ${data.address}` : null
+            };
+
+            const result = await window.calendarManager.createAppointmentEvent(appointmentData);
+            
+            if (result.success) {
+                console.log('✅ Evento agregado a Google Calendar:', result.eventId);
+                this.showSuccessNotification('¡También se agregó a tu Google Calendar!');
+            } else {
+                console.warn('⚠️ Calendar integration failed:', result.error);
+                // Mostrar enlace de fallback si está disponible
+                if (result.fallbackLink) {
+                    this.showCalendarFallback(result.fallbackLink);
+                }
+            }
+
+            return result;
+
         } catch (error) {
-            console.warn('No se pudo agregar a Google Calendar:', error);
-            // No bloquear el proceso si falla el calendario
+            console.warn('Calendar integration error:', error);
+            return null;
         }
     }
 
-    // CORREGIDO - Enviar tanto email de confirmación como notificación
+    showCalendarFallback(link) {
+        const modal = document.getElementById('successModal');
+        if (modal) {
+            const existingLink = modal.querySelector('.calendar-fallback');
+            if (!existingLink) {
+                const linkElement = document.createElement('div');
+                linkElement.className = 'calendar-fallback';
+                linkElement.innerHTML = `
+                    <p class="text-sm text-gray-600 mt-4">
+                        <a href="${link}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">
+                            Haz clic aquí para agregar manualmente a tu calendario
+                        </a>
+                    </p>
+                `;
+                modal.querySelector('.modal-content').appendChild(linkElement);
+            }
+        }
+    }
+
+    // Método mejorado para enviar notificaciones
     async sendNotifications(data) {
+        if (!window.emailjs) {
+            throw new Error('EmailJS not available');
+        }
+
         const promises = [];
 
-        // 1. Email de confirmación al cliente
-        promises.push(this.sendConfirmationEmail(data));
+        // Email de confirmación al cliente
+        promises.push(
+            this.sendConfirmationEmail(data).catch(error => {
+                console.error('Error sending confirmation email:', error);
+                return { error: 'confirmation_failed' };
+            })
+        );
 
-        // 2. Email de notificación al negocio
-        promises.push(this.sendBusinessNotification(data));
+        // Email de notificación al negocio
+        promises.push(
+            this.sendBusinessNotification(data).catch(error => {
+                console.error('Error sending business notification:', error);
+                return { error: 'business_notification_failed' };
+            })
+        );
 
-        // Ejecutar ambos emails en paralelo
-        await Promise.allSettled(promises);
-    }
+        const results = await Promise.allSettled(promises);
+        
+        // Verificar resultados
+        const confirmationResult = results[0];
+        const businessResult = results[1];
 
-    // NUEVO - Email de confirmación para el cliente
-    async sendConfirmationEmail(data) {
-        if (!window.emailjs) {
-            throw new Error('EmailJS not loaded');
+        let hasErrors = false;
+
+        if (confirmationResult.status === 'rejected' || confirmationResult.value?.error) {
+            console.warn('Confirmation email failed');
+            hasErrors = true;
         }
 
+        if (businessResult.status === 'rejected' || businessResult.value?.error) {
+            console.warn('Business notification failed');
+            hasErrors = true;
+        }
+
+        if (hasErrors) {
+            console.warn('Some email notifications failed, but booking was saved');
+        } else {
+            console.log('✅ All email notifications sent successfully');
+        }
+    }
+
+    // Email de confirmación para el cliente
+    async sendConfirmationEmail(data) {
+        const serviceNames = {
+            'alteraciones-basicas': 'Alteraciones Básicas',
+            'reparaciones': 'Reparaciones',
+            'ajustes-formales': 'Ajustes Formales',
+            'vestidos-novia': 'Vestidos de Novia',
+            'diseno-personalizado': 'Diseño Personalizado',
+            'hemming': 'Hemming Service',
+            'zipper': 'Zipper Repair',
+            'resizing': 'Clothing Resizing',
+            'custom': 'Custom Clothing',
+            'alterations': 'General Alterations'
+        };
+
+        const serviceName = serviceNames[data.service] || data.service;
+
         const templateParams = {
-            to_email: data.email, // Email del CLIENTE
+            to_email: data.email,
             to_name: `${data.firstName} ${data.lastName}`,
             from_name: 'Margarita\'s Tailoring',
-            service: data.service,
+            service: serviceName,
             date: data.date,
             time: data.time,
             priority: data.priority ? 'Sí' : 'No',
@@ -223,7 +349,7 @@ Su cita ha sido confirmada exitosamente:
 
 📅 Fecha: ${data.date}
 🕐 Hora: ${data.time}
-✂️ Servicio: ${data.service}
+✂️ Servicio: ${serviceName}
 ⚡ Servicio Express: ${data.priority ? 'Sí' : 'No'}
 🚗 Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}
 ${data.address ? `📍 Dirección: ${data.address}` : ''}
@@ -239,23 +365,34 @@ Si necesita hacer cambios, contáctenos:
 
         return emailjs.send(
             this.emailConfig.serviceId,
-            'template_confirmation', // Template específico para confirmación
+            'template_confirmation',
             templateParams
         );
     }
 
-    // CORREGIDO - Email de notificación para el negocio
+    // Email de notificación para el negocio
     async sendBusinessNotification(data) {
-        if (!window.emailjs) {
-            throw new Error('EmailJS not loaded');
-        }
+        const serviceNames = {
+            'alteraciones-basicas': 'Alteraciones Básicas',
+            'reparaciones': 'Reparaciones',
+            'ajustes-formales': 'Ajustes Formales',
+            'vestidos-novia': 'Vestidos de Novia',
+            'diseno-personalizado': 'Diseño Personalizado',
+            'hemming': 'Hemming Service',
+            'zipper': 'Zipper Repair',
+            'resizing': 'Clothing Resizing',
+            'custom': 'Custom Clothing',
+            'alterations': 'General Alterations'
+        };
+
+        const serviceName = serviceNames[data.service] || data.service;
 
         const templateParams = {
-            to_email: 'info@margaritastailoring.com', // Email del NEGOCIO
+            to_email: 'info@margaritastailoring.com',
             from_name: `${data.firstName} ${data.lastName}`,
             from_email: data.email,
             phone: data.phone,
-            service: data.service,
+            service: serviceName,
             date: data.date,
             time: data.time,
             priority: data.priority ? 'Sí' : 'No',
@@ -268,7 +405,7 @@ Si necesita hacer cambios, contáctenos:
 Nombre: ${data.firstName} ${data.lastName}
 Email: ${data.email}
 Teléfono: ${data.phone}
-Servicio: ${data.service}
+Servicio: ${serviceName}
 Fecha: ${data.date}
 Hora: ${data.time}
 Servicio Express: ${data.priority ? 'Sí' : 'No'}
@@ -279,7 +416,7 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
 
         return emailjs.send(
             this.emailConfig.serviceId,
-            this.emailConfig.templateId, // Template para notificaciones de negocio
+            this.emailConfig.templateId,
             templateParams
         );
     }
@@ -289,17 +426,20 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
         
         for (const field of required) {
             if (!data[field] || data[field].trim() === '') {
+                console.error(`Required field missing: ${field}`);
                 return false;
             }
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(data.email)) {
+            console.error('Invalid email format');
             return false;
         }
 
         const phoneRegex = /^[\d\s\-\(\)\+]+$/;
         if (!phoneRegex.test(data.phone)) {
+            console.error('Invalid phone format');
             return false;
         }
 
@@ -318,28 +458,56 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
             
             bookings.push(booking);
             localStorage.setItem('bookings', JSON.stringify(bookings));
+            console.log('✅ Booking saved to localStorage');
         } catch (error) {
-            console.warn('No se pudo guardar en localStorage:', error);
+            console.warn('Could not save to localStorage:', error);
             // No bloquear el proceso si falla localStorage
         }
     }
 
     setLoadingState(loading) {
         const submitBtn = document.getElementById('submitBtn');
+        if (!submitBtn) return;
+
         const btnText = submitBtn.querySelector('.btn-text');
         const btnLoading = submitBtn.querySelector('.btn-loading');
 
         if (loading) {
-            btnText.classList.add('hidden');
-            btnLoading.classList.remove('hidden');
+            if (btnText) btnText.classList.add('hidden');
+            if (btnLoading) btnLoading.classList.remove('hidden');
             submitBtn.disabled = true;
         } else {
-            btnText.classList.remove('hidden');
-            btnLoading.classList.add('hidden');
+            if (btnText) btnText.classList.remove('hidden');
+            if (btnLoading) btnLoading.classList.add('hidden');
             submitBtn.disabled = false;
         }
     }
 
+    // Métodos de notificación mejorados
+    showSuccessNotification(message) {
+        this.showNotification(message, 'success');
+    }
+
+    showErrorNotification(message) {
+        this.showNotification(message, 'error');
+    }
+
+    showNotification(message, type = 'info') {
+        // Usar el sistema de notificaciones de la app principal si está disponible
+        if (window.App && window.App.showNotification) {
+            window.App.showNotification(message, type);
+        } else {
+            // Fallback simple
+            console.log(`${type.toUpperCase()}: ${message}`);
+            
+            // Mostrar alert como último recurso
+            if (type === 'error') {
+                alert(message);
+            }
+        }
+    }
+
+    // Métodos utilitarios
     getBookings() {
         try {
             return JSON.parse(localStorage.getItem('bookings') || '[]');
@@ -353,9 +521,20 @@ ${data.description ? `Descripción: ${data.description}` : ''}`
         const bookings = this.getBookings();
         return bookings.find(booking => booking.id === id);
     }
+
+    // Método para verificar estado
+    isReady() {
+        return this.isInitialized && window.emailjs;
+    }
+
+    // Método para reinicializar si es necesario
+    async reinitialize() {
+        this.isInitialized = false;
+        return this.init();
+    }
 }
 
-// Initialize booking manager when DOM is loaded
+// Inicializar BookingManager cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('bookingForm')) {
         window.bookingManager = new BookingManager();
