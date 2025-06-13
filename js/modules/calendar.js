@@ -1,4 +1,4 @@
-// js/modules/calendar.js - Migrado a Google Identity Services (GIS)
+// js/modules/calendar.js 
 
 class CalendarManager {
     constructor() {
@@ -8,18 +8,16 @@ class CalendarManager {
         this.SCOPES = 'https://www.googleapis.com/auth/calendar.events';
         
         this.gapi = null;
-        this.tokenClient = null;
-        this.accessToken = null;
+        this.googleAuth = null;
         this.isInitialized = false;
         this.isApiLoaded = false;
-        this.isGisLoaded = false;
         this.initPromise = null;
         this.loadAttempts = 0;
         this.maxLoadAttempts = 3;
     }
 
     /**
-     * Inicializar Google Calendar API con Google Identity Services
+     * Inicializar Google Calendar API con manejo robusto de errores
      */
     async init() {
         if (this.initPromise) {
@@ -36,7 +34,7 @@ class CalendarManager {
 
     async _performInit() {
         try {
-            console.log('Iniciando Google Calendar API con GIS...');
+            console.log('Iniciando Google Calendar API...');
 
             // Verificar contexto seguro
             if (!this._isSecureContext()) {
@@ -44,30 +42,28 @@ class CalendarManager {
                 return false;
             }
 
-            // Cargar ambas librerías en paralelo
-            const [gapiLoaded, gisLoaded] = await Promise.all([
-                this._loadGoogleAPIWithRetry(),
-                this._loadGoogleIdentityServices()
-            ]);
-
-            if (!gapiLoaded || !gisLoaded) {
-                throw new Error('Failed to load required Google libraries');
+            // Cargar Google API con reintentos
+            const apiLoaded = await this._loadGoogleAPIWithRetry();
+            if (!apiLoaded) {
+                throw new Error('Failed to load Google API after multiple attempts');
             }
 
-            // Inicializar gapi client (solo para API calls, no para auth)
-            await this._initializeGapiClient();
+            // Inicializar gapi.load con configuración corregida
+            await this._initializeGapi();
 
-            // Inicializar Google Identity Services
-            await this._initializeGIS();
+            // Configurar cliente
+            await this._initializeClient();
 
             this.isInitialized = true;
-            console.log('✅ Google Calendar API inicializada correctamente con GIS');
+            console.log('✅ Google Calendar API inicializada correctamente');
             return true;
 
         } catch (error) {
             console.error('❌ Error inicializando Google Calendar API:', error);
             this.isInitialized = false;
             this.initPromise = null;
+            
+            // No lanzar error para no bloquear la aplicación
             return false;
         }
     }
@@ -85,21 +81,21 @@ class CalendarManager {
      * Cargar Google API con reintentos
      */
     async _loadGoogleAPIWithRetry() {
-        let attempts = 0;
-        while (attempts < this.maxLoadAttempts) {
+        while (this.loadAttempts < this.maxLoadAttempts) {
             try {
-                attempts++;
-                console.log(`Intento ${attempts} - Cargando Google API...`);
+                this.loadAttempts++;
+                console.log(`Intento ${this.loadAttempts} - Cargando Google API...`);
                 
                 await this._loadGoogleAPI();
                 this.isApiLoaded = true;
                 return true;
                 
             } catch (error) {
-                console.warn(`Intento ${attempts} falló:`, error);
+                console.warn(`Intento ${this.loadAttempts} falló:`, error);
                 
-                if (attempts < this.maxLoadAttempts) {
-                    const delay = Math.pow(2, attempts) * 1000;
+                if (this.loadAttempts < this.maxLoadAttempts) {
+                    // Esperar before retry (exponential backoff)
+                    const delay = Math.pow(2, this.loadAttempts) * 1000;
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }
@@ -112,6 +108,7 @@ class CalendarManager {
      */
     _loadGoogleAPI() {
         return new Promise((resolve, reject) => {
+            // Si ya está cargado, resolver inmediatamente
             if (window.gapi) {
                 resolve();
                 return;
@@ -122,10 +119,11 @@ class CalendarManager {
             script.async = true;
             script.defer = true;
             
+            // Timeout más corto pero manejado correctamente
             const timeout = setTimeout(() => {
                 script.remove();
-                reject(new Error('Google API load timeout'));
-            }, 10000);
+                reject(new Error('Google API load timeout (8s)'));
+            }, 8000);
 
             script.onload = () => {
                 clearTimeout(timeout);
@@ -133,7 +131,7 @@ class CalendarManager {
                 resolve();
             };
             
-            script.onerror = () => {
+            script.onerror = (error) => {
                 clearTimeout(timeout);
                 script.remove();
                 reject(new Error('Failed to load Google API script'));
@@ -144,78 +142,32 @@ class CalendarManager {
     }
 
     /**
-     * Cargar Google Identity Services
+     * Inicializar gapi.load con configuración corregida
      */
-    _loadGoogleIdentityServices() {
-        return new Promise((resolve, reject) => {
-            if (window.google?.accounts) {
-                resolve();
-                return;
-            }
-
-            const script = document.createElement('script');
-            script.src = 'https://accounts.google.com/gsi/client';
-            script.async = true;
-            script.defer = true;
-            
-            const timeout = setTimeout(() => {
-                script.remove();
-                reject(new Error('Google Identity Services load timeout'));
-            }, 10000);
-
-            script.onload = () => {
-                clearTimeout(timeout);
-                console.log('✅ Google Identity Services cargado');
-                this.isGisLoaded = true;
-                resolve();
-            };
-            
-            script.onerror = () => {
-                clearTimeout(timeout);
-                script.remove();
-                reject(new Error('Failed to load Google Identity Services'));
-            };
-            
-            document.head.appendChild(script);
-        });
-    }
-
-    /**
-     * Inicializar gapi client (solo para API calls)
-     */
-    _initializeGapiClient() {
+    _initializeGapi() {
         return new Promise((resolve, reject) => {
             if (!window.gapi) {
                 reject(new Error('gapi not available'));
                 return;
             }
 
+            // CORRECCIÓN: Configurar timeout correctamente
             const timeoutId = setTimeout(() => {
                 reject(new Error('gapi.load timeout'));
             }, 10000);
 
             try {
-                window.gapi.load('client', {
-                    callback: async () => {
-                        try {
-                            await window.gapi.client.init({
-                                apiKey: this.API_KEY,
-                                discoveryDocs: [this.DISCOVERY_DOC]
-                            });
-                            
-                            this.gapi = window.gapi;
-                            clearTimeout(timeoutId);
-                            console.log('✅ gapi client inicializado');
-                            resolve();
-                        } catch (error) {
-                            clearTimeout(timeoutId);
-                            reject(error);
-                        }
+                window.gapi.load('client:auth2', {
+                    callback: () => {
+                        clearTimeout(timeoutId);
+                        console.log('✅ gapi client:auth2 cargado');
+                        resolve();
                     },
                     onerror: (error) => {
                         clearTimeout(timeoutId);
                         reject(error || new Error('gapi.load failed'));
                     }
+                    // REMOVIDO: timeout parameter que causaba el error
                 });
             } catch (error) {
                 clearTimeout(timeoutId);
@@ -225,45 +177,24 @@ class CalendarManager {
     }
 
     /**
-     * Inicializar Google Identity Services
+     * Inicializar cliente de Google API
      */
-    _initializeGIS() {
-        return new Promise((resolve, reject) => {
-            try {
-                if (!window.google?.accounts?.oauth2) {
-                    reject(new Error('Google Identity Services not available'));
-                    return;
-                }
+    async _initializeClient() {
+        try {
+            await window.gapi.client.init({
+                apiKey: this.API_KEY,
+                clientId: this.CLIENT_ID,
+                discoveryDocs: [this.DISCOVERY_DOC],
+                scope: this.SCOPES
+            });
 
-                // Inicializar el cliente OAuth2
-                this.tokenClient = window.google.accounts.oauth2.initTokenClient({
-                    client_id: this.CLIENT_ID,
-                    scope: this.SCOPES,
-                    callback: (response) => {
-                        if (response.error) {
-                            console.error('Error en OAuth callback:', response.error);
-                            return;
-                        }
-                        
-                        this.accessToken = response.access_token;
-                        console.log('✅ Token de acceso obtenido');
-                        
-                        // Configurar el token en gapi
-                        if (this.gapi?.client) {
-                            this.gapi.client.setToken({
-                                access_token: this.accessToken
-                            });
-                        }
-                    }
-                });
+            this.gapi = window.gapi;
+            console.log('✅ Cliente de Google API inicializado');
 
-                console.log('✅ Google Identity Services inicializado');
-                resolve();
-
-            } catch (error) {
-                reject(error);
-            }
-        });
+        } catch (error) {
+            console.error('Error inicializando cliente:', error);
+            throw error;
+        }
     }
 
     /**
@@ -276,14 +207,18 @@ class CalendarManager {
                 if (!initialized) return false;
             }
 
-            // Con GIS, verificamos si tenemos un token válido
-            if (this.accessToken && this.gapi?.client?.getToken()) {
-                console.log('Estado de autenticación: autenticado');
-                return true;
+            if (!this.gapi?.auth2) {
+                return false;
             }
 
-            console.log('Estado de autenticación: no autenticado');
-            return false;
+            const authInstance = this.gapi.auth2.getAuthInstance();
+            if (!authInstance) {
+                return false;
+            }
+
+            const isSignedIn = authInstance.isSignedIn.get();
+            console.log('Estado de autenticación:', isSignedIn);
+            return isSignedIn;
 
         } catch (error) {
             console.warn('Error verificando autenticación:', error);
@@ -292,72 +227,61 @@ class CalendarManager {
     }
 
     /**
-     * Autenticar usuario con Google Identity Services
+     * Autenticar usuario con manejo mejorado
      */
     async authenticate() {
-        return new Promise(async (resolve, reject) => {
-            try {
-                if (!this.isInitialized) {
-                    const initialized = await this.init();
-                    if (!initialized) {
-                        reject(new Error('API not initialized'));
-                        return;
-                    }
+        try {
+            if (!this.isInitialized) {
+                const initialized = await this.init();
+                if (!initialized) {
+                    throw new Error('API not initialized');
                 }
-
-                if (!this.tokenClient) {
-                    reject(new Error('Token client not available'));
-                    return;
-                }
-
-                // Verificar si ya tenemos un token válido
-                if (await this.checkAuthStatus()) {
-                    console.log('✅ Ya autenticado');
-                    resolve(true);
-                    return;
-                }
-
-                console.log('🔐 Solicitando autenticación...');
-
-                // Configurar callback temporal para esta autenticación
-                const originalCallback = this.tokenClient.callback;
-                this.tokenClient.callback = (response) => {
-                    // Restaurar callback original
-                    this.tokenClient.callback = originalCallback;
-                    
-                    if (response.error) {
-                        console.error('❌ Error en autenticación:', response.error);
-                        reject(new Error(response.error));
-                        return;
-                    }
-                    
-                    this.accessToken = response.access_token;
-                    console.log('✅ Autenticación exitosa');
-                    
-                    // Configurar el token en gapi
-                    if (this.gapi?.client) {
-                        this.gapi.client.setToken({
-                            access_token: this.accessToken
-                        });
-                    }
-                    
-                    resolve(true);
-                };
-
-                // Solicitar token
-                this.tokenClient.requestAccessToken({
-                    prompt: 'consent'
-                });
-
-            } catch (error) {
-                console.error('❌ Error en autenticación:', error);
-                reject(error);
             }
-        });
+
+            const authInstance = this.gapi.auth2.getAuthInstance();
+            if (!authInstance) {
+                throw new Error('Auth instance not available');
+            }
+
+            if (authInstance.isSignedIn.get()) {
+                console.log('✅ Ya autenticado');
+                return true;
+            }
+
+            console.log('🔐 Solicitando autenticación...');
+            
+            // Configurar opciones de autenticación
+            const signInOptions = {
+                scope: this.SCOPES,
+                prompt: 'consent',
+                include_granted_scopes: true
+            };
+
+            const user = await authInstance.signIn(signInOptions);
+            
+            if (user && authInstance.isSignedIn.get()) {
+                console.log('✅ Autenticación exitosa');
+                return true;
+            } else {
+                throw new Error('Sign-in was not successful');
+            }
+
+        } catch (error) {
+            console.error('❌ Error en autenticación:', error);
+            
+            // Mostrar mensaje específico según el tipo de error
+            if (error.error === 'popup_blocked_by_browser') {
+                console.warn('Popup bloqueado por el navegador');
+            } else if (error.error === 'access_denied') {
+                console.warn('Usuario denegó acceso');
+            }
+            
+            return false;
+        }
     }
 
     /**
-     * Crear evento en Google Calendar
+     * Crear evento en Google Calendar con manejo robusto
      */
     async createAppointmentEvent(appointmentData) {
         try {
@@ -374,9 +298,8 @@ class CalendarManager {
             // Verificar autenticación
             const isAuthenticated = await this.checkAuthStatus();
             if (!isAuthenticated) {
-                try {
-                    await this.authenticate();
-                } catch (authError) {
+                const authSuccess = await this.authenticate();
+                if (!authSuccess) {
                     return this._generateFallbackResponse(appointmentData, 'Authentication failed');
                 }
             }
@@ -419,7 +342,7 @@ class CalendarManager {
     }
 
     /**
-     * Formatear datos del evento
+     * Formatear datos del evento (sin cambios)
      */
     formatEventData(appointmentData) {
         const startDateTime = new Date(`${appointmentData.appointmentDate}T${appointmentData.appointmentTime}`);
@@ -527,20 +450,12 @@ class CalendarManager {
      */
     async signOut() {
         try {
-            if (this.accessToken) {
-                // Revocar token
-                window.google.accounts.oauth2.revoke(this.accessToken, () => {
-                    console.log('✅ Token revocado');
-                });
-                
-                this.accessToken = null;
-                
-                // Limpiar token de gapi
-                if (this.gapi?.client) {
-                    this.gapi.client.setToken(null);
+            if (this.isInitialized && this.gapi?.auth2) {
+                const authInstance = this.gapi.auth2.getAuthInstance();
+                if (authInstance && authInstance.isSignedIn.get()) {
+                    await authInstance.signOut();
+                    console.log('✅ Sesión cerrada');
                 }
-                
-                console.log('✅ Sesión cerrada');
             }
         } catch (error) {
             console.error('Error cerrando sesión:', error);
@@ -554,19 +469,27 @@ class CalendarManager {
         return this.isInitialized && 
                this.gapi && 
                this.gapi.client && 
-               this.gapi.client.calendar &&
-               this.tokenClient;
+               this.gapi.client.calendar;
     }
 
     /**
-     * Obtener información del usuario (simplificado con GIS)
+     * Obtener información del usuario
      */
     getCurrentUser() {
         try {
-            if (this.accessToken) {
-                // Con GIS necesitarías hacer una llamada adicional a la API de Google
-                // para obtener la información del usuario. Por simplicidad, retornamos null
-                return null;
+            if (this.isInitialized && this.gapi?.auth2) {
+                const authInstance = this.gapi.auth2.getAuthInstance();
+                if (authInstance && authInstance.isSignedIn.get()) {
+                    const user = authInstance.currentUser.get();
+                    const profile = user.getBasicProfile();
+                    
+                    return {
+                        id: profile.getId(),
+                        name: profile.getName(),
+                        email: profile.getEmail(),
+                        image: profile.getImageUrl()
+                    };
+                }
             }
         } catch (error) {
             console.error('Error obteniendo usuario:', error);
