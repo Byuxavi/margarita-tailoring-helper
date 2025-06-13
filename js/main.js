@@ -1,4 +1,4 @@
-// main.js - 
+// main.js - Corregido para mejor manejo de Google Calendar y errores
 import { initLocation } from './modules/location.js';
 import BookingManager from './modules/booking.js';
 import calendarManager from './modules/calendar.js';
@@ -7,6 +7,7 @@ class App {
   constructor() {
     this.currentLang = 'es';
     this.isInitialized = false;
+    this.calendarAvailable = false;
     this.init();
   }
 
@@ -54,13 +55,25 @@ class App {
     // Inicializar módulo de reservas si existe el formulario
     if (document.getElementById('bookingForm')) {
       promises.push(
+        this.safeInitModule('Booking', () => this.initBookingModule())
+      );
+      
+      // Intentar inicializar calendar de forma no bloqueante
+      promises.push(
         this.safeInitModule('Calendar', () => this.initCalendarIntegration())
       );
     }
 
     // Esperar a que todos los módulos se inicialicen
     if (promises.length > 0) {
-      await Promise.allSettled(promises);
+      const results = await Promise.allSettled(promises);
+      
+      // Log de resultados para debugging
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn(`Module ${index} failed:`, result.reason);
+        }
+      });
     }
   }
 
@@ -68,30 +81,204 @@ class App {
     try {
       await initFunction();
       console.log(`✅ ${moduleName} module initialized`);
+      return true;
     } catch (error) {
       console.warn(`⚠️ ${moduleName} module failed to initialize:`, error);
       // No lanzar error para no bloquear otros módulos
+      return false;
     }
+  }
+
+  async initBookingModule() {
+    // El BookingManager ya se inicializa automáticamente
+    // Solo verificamos que esté disponible
+    if (window.bookingManager) {
+      console.log('✅ Booking module already initialized');
+      return true;
+    }
+    
+    // Si no existe, esperamos un poco y reintentamos
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (!window.bookingManager) {
+      throw new Error('BookingManager not available');
+    }
+    
+    return true;
   }
 
   async initCalendarIntegration() {
     try {
-      // Inicializar calendar manager de forma no bloqueante
+      console.log('🔄 Intentando inicializar Google Calendar...');
+      
+      // Verificar si estamos en un contexto seguro
+      if (!this.isSecureContext()) {
+        console.warn('⚠️ Google Calendar requiere HTTPS - funcionalidad limitada');
+        return false;
+      }
+
+      // Intentar inicializar con timeout más corto
       const initPromise = calendarManager.init();
       
-      // Timeout para no bloquear indefinidamente
+      // Timeout más corto para no bloquear
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Calendar init timeout')), 15000);
+        setTimeout(() => reject(new Error('Calendar init timeout')), 10000);
       });
 
-      await Promise.race([initPromise, timeoutPromise]);
-      console.log('✅ Calendar integration ready');
+      const result = await Promise.race([initPromise, timeoutPromise]);
+      
+      if (result) {
+        this.calendarAvailable = true;
+        console.log('✅ Google Calendar integration ready');
+        
+        // Integrar con el booking manager
+        this.integrateCalendarWithBooking();
+        
+        return true;
+      } else {
+        throw new Error('Calendar initialization failed');
+      }
       
     } catch (error) {
-      console.warn('⚠️ Calendar integration failed:', error);
-      // El proceso continuará sin calendar - no es crítico
-      // Esto permite que el booking funcione sin Google Calendar
+      console.warn('⚠️ Google Calendar no disponible:', error.message);
+      this.calendarAvailable = false;
+      
+      // Mostrar notificación informativa solo si es un error de configuración
+      if (error.message.includes('deprecated') || error.message.includes('idpiframe')) {
+        console.warn('📝 Nota: Google Calendar usa APIs deprecadas - se necesita actualización');
+      }
+      
+      // No mostrar error al usuario - el booking funcionará sin calendar
+      return false;
     }
+  }
+
+  isSecureContext() {
+    return location.protocol === 'https:' || 
+           location.hostname === 'localhost' || 
+           location.hostname === '127.0.0.1';
+  }
+
+  integrateCalendarWithBooking() {
+    if (!window.bookingManager || !this.calendarAvailable) {
+      return;
+    }
+
+    try {
+      // Extender el BookingManager para incluir calendar
+      const originalHandleSubmit = window.bookingManager.handleSubmit;
+      
+      window.bookingManager.handleSubmit = async function(form) {
+        try {
+          // Ejecutar el proceso normal de booking
+          await originalHandleSubmit.call(this, form);
+          
+          // Si el booking fue exitoso, intentar agregar al calendar
+          if (window.app.calendarAvailable) {
+            const formData = new FormData(form);
+            const appointmentData = {
+              fullName: `${formData.get('firstName')} ${formData.get('lastName')}`,
+              email: formData.get('email'),
+              phone: formData.get('phone'),
+              service: formData.get('service'),
+              appointmentDate: formData.get('date'),
+              appointmentTime: formData.get('time'),
+              description: formData.get('description') || '',
+              notes: formData.get('pickup') ? 'Recolección a domicilio' : ''
+            };
+            
+            // Intentar agregar al calendar (no bloqueante)
+            window.app.addToCalendar(appointmentData);
+          }
+          
+        } catch (error) {
+          throw error; // Re-lanzar para mantener el comportamiento original
+        }
+      };
+      
+      console.log('✅ Calendar integrado con booking');
+      
+    } catch (error) {
+      console.warn('⚠️ Error integrando calendar:', error);
+    }
+  }
+
+  async addToCalendar(appointmentData) {
+    try {
+      console.log('📅 Intentando agregar evento al calendario...');
+      
+      const result = await calendarManager.createAppointmentEvent(appointmentData);
+      
+      if (result.success) {
+        this.showNotification('✅ Evento agregado al calendario', 'success');
+      } else {
+        console.warn('Calendar fallback:', result.message);
+        
+        // Mostrar link manual si está disponible
+        if (result.fallbackLink) {
+          this.showCalendarFallback(result.fallbackLink);
+        }
+      }
+      
+    } catch (error) {
+      console.warn('Error agregando al calendario:', error);
+      // No mostrar error - el booking ya fue exitoso
+    }
+  }
+
+  showCalendarFallback(link) {
+    // Crear un modal simple para mostrar el link del calendario
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    `;
+    
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    `;
+    
+    content.innerHTML = `
+      <h3 style="margin: 0 0 15px 0; color: #333;">Agregar al Calendario</h3>
+      <p style="margin: 0 0 20px 0; color: #666;">Haz clic en el enlace para agregar manualmente:</p>
+      <a href="${link}" target="_blank" 
+         style="display: inline-block; background: #4285f4; color: white; 
+                padding: 10px 20px; border-radius: 5px; text-decoration: none;
+                margin-bottom: 15px;">
+        📅 Abrir Google Calendar
+      </a>
+      <br>
+      <button onclick="this.closest('.calendar-modal').remove()" 
+              style="background: #ccc; border: none; padding: 8px 16px; 
+                     border-radius: 4px; cursor: pointer;">
+        Cerrar
+      </button>
+    `;
+    
+    modal.className = 'calendar-modal';
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    // Auto-cerrar en 10 segundos
+    setTimeout(() => {
+      if (modal.parentNode) {
+        modal.remove();
+      }
+    }, 10000);
   }
 
   setupGlobalErrorHandling() {
@@ -99,7 +286,7 @@ class App {
     window.addEventListener('error', (e) => {
       // Filtrar errores conocidos que no son críticos
       if (this.isKnownNonCriticalError(e.error)) {
-        console.warn('Non-critical error:', e.error);
+        console.warn('Non-critical error:', e.error?.message || e.error);
         return;
       }
 
@@ -115,7 +302,7 @@ class App {
     window.addEventListener('unhandledrejection', (e) => {
       // Filtrar rechazos conocidos que no son críticos
       if (this.isKnownNonCriticalError(e.reason)) {
-        console.warn('Non-critical promise rejection:', e.reason);
+        console.warn('Non-critical promise rejection:', e.reason?.message || e.reason);
         e.preventDefault();
         return;
       }
@@ -131,20 +318,32 @@ class App {
 
   // Verificar si un error es conocido y no crítico
   isKnownNonCriticalError(error) {
-    if (!error) return true; // Error null/undefined no es crítico
+    if (!error) return true;
     
     const errorString = error.toString ? error.toString() : String(error);
     
-    // Errores conocidos de Google APIs que no afectan funcionalidad core
+    // Errores conocidos que no afectan funcionalidad core
     const nonCriticalPatterns = [
-      'GAPI load timeout',
+      'gapi load timeout',
       'timeout parameter',
       'ontimeout parameter',
-      'Failed to load Google API',
+      'failed to load google api',
       'gapi.load',
       'apis.google.com',
-      'Access-Control-Allow-Origin',
-      'CORS'
+      'access-control-allow-origin',
+      'cors',
+      'idpiframe',
+      'initialization_failed',
+      'deprecated',
+      'new libraries instead',
+      'migration guide',
+      'calendar init timeout',
+      'could not establish connection',
+      'receiving end does not exist',
+      'message channel closed',
+      'content security policy',
+      'script-src',
+      'gstatic.com'
     ];
 
     return nonCriticalPatterns.some(pattern => 
@@ -160,11 +359,12 @@ class App {
     
     // Errores críticos que afectan funcionalidad principal
     const criticalPatterns = [
-      'BookingManager',
-      'EmailJS',
-      'form submission',
+      'bookingmanager not available',
+      'emailjs not available',
+      'form submission failed',
       'network error',
-      'server error'
+      'server error',
+      'email sending failed'
     ];
 
     return criticalPatterns.some(pattern => 
@@ -219,10 +419,11 @@ class App {
       notification.style.transform = 'translateX(0)';
     }, 10);
     
-    // Auto-remover después de 5 segundos
+    // Auto-remover
+    const duration = type === 'error' ? 8000 : 5000;
     setTimeout(() => {
       this.removeNotification(notification);
-    }, 5000);
+    }, duration);
   }
 
   removeNotification(notification) {
@@ -243,11 +444,6 @@ class App {
     } else {
       // Fallback si no hay instancia de app
       console.log(`${type.toUpperCase()}: ${message}`);
-      
-      // Para errores críticos, mostrar alert como último recurso
-      if (type === 'error') {
-        alert(message);
-      }
     }
   }
 
@@ -285,8 +481,14 @@ class App {
     return {
       app: this.isInitialized,
       booking: window.bookingManager?.isReady() || false,
-      calendar: window.calendarManager?.isAvailable() || false
+      calendar: this.calendarAvailable,
+      location: !!window.initLocation
     };
+  }
+
+  // Método para verificar disponibilidad de calendar
+  isCalendarAvailable() {
+    return this.calendarAvailable;
   }
 }
 
@@ -297,10 +499,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Manejar errores de carga del módulo
 window.addEventListener('load', () => {
-  // Verificar que todos los módulos críticos estén cargados
+  // Verificar que la app esté lista después de la carga
   setTimeout(() => {
-    if (window.app && !window.app.isReady()) {
-      console.warn('App initialization may have failed');
+    if (window.app) {
+      const status = window.app.getModuleStatus();
+      console.log('📊 Module Status:', status);
+      
+      if (!window.app.isReady()) {
+        console.warn('⚠️ App initialization may have failed');
+      }
     }
   }, 2000);
 });
