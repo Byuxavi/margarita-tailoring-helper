@@ -1,4 +1,4 @@
-// js/modules/calendar.js - Actualizado para Google Identity Services (GIS)
+// js/modules/calendar.js - Versión mejorada con mejor manejo de errores
 
 class CalendarManager {
     constructor() {
@@ -14,7 +14,8 @@ class CalendarManager {
         this.isApiLoaded = false;
         this.initPromise = null;
         this.loadAttempts = 0;
-        this.maxLoadAttempts = 3;
+        this.maxLoadAttempts = 2; // Reducido para fallar más rápido
+        this.fallbackMode = false;
     }
 
     /**
@@ -35,39 +36,48 @@ class CalendarManager {
 
     async _performInit() {
         try {
-            console.log('Iniciando Google Calendar API con GIS...');
+            console.log('🔄 Iniciando Google Calendar API con GIS...');
 
-            // Verificar contexto seguro
+            // Verificar contexto seguro primero
             if (!this._isSecureContext()) {
-                console.warn('Google Calendar API requires HTTPS context');
-                return false;
+                console.warn('⚠️ Google Calendar API requires HTTPS context, switching to fallback mode');
+                this.fallbackMode = true;
+                this.isInitialized = true; // Marcar como inicializado para usar fallback
+                return true;
             }
 
-            // Cargar ambas librerías: gapi y gsi
-            const [gapiLoaded, gsiLoaded] = await Promise.all([
-                this._loadGoogleAPIWithRetry(),
-                this._loadGoogleIdentityServices()
+            // Verificar conectividad básica
+            const hasNetwork = await this._checkNetworkConnectivity();
+            if (!hasNetwork) {
+                console.warn('⚠️ Network connectivity issues, switching to fallback mode');
+                this.fallbackMode = true;
+                this.isInitialized = true;
+                return true;
+            }
+
+            // Intentar cargar las APIs con timeout más corto
+            const loadPromise = Promise.race([
+                this._loadAPIs(),
+                this._createTimeout(8000, 'API load timeout')
             ]);
 
-            if (!gapiLoaded || !gsiLoaded) {
-                throw new Error('Failed to load Google APIs');
+            const apisLoaded = await loadPromise;
+
+            if (apisLoaded) {
+                await this._initializeAPIs();
+                this.isInitialized = true;
+                console.log('✅ Google Calendar API inicializada correctamente');
+                return true;
+            } else {
+                throw new Error('Failed to load APIs');
             }
 
-            // Inicializar gapi
-            await this._initializeGapi();
-
-            // Inicializar cliente de identidad
-            await this._initializeIdentityClient();
-
-            this.isInitialized = true;
-            console.log('✅ Google Calendar API inicializada correctamente con GIS');
-            return true;
-
         } catch (error) {
-            console.error('❌ Error inicializando Google Calendar API:', error);
-            this.isInitialized = false;
+            console.warn('⚠️ Error inicializando Google Calendar API, usando modo fallback:', error.message);
+            this.fallbackMode = true;
+            this.isInitialized = true; // Marcar como inicializado para usar fallback
             this.initPromise = null;
-            return false;
+            return true; // Retornar true porque el fallback está disponible
         }
     }
 
@@ -77,32 +87,49 @@ class CalendarManager {
     _isSecureContext() {
         return location.protocol === 'https:' || 
                location.hostname === 'localhost' || 
-               location.hostname === '127.0.0.1';
+               location.hostname === '127.0.0.1' ||
+               location.hostname === '0.0.0.0';
     }
 
     /**
-     * Cargar Google API con reintentos
+     * Verificar conectividad de red básica
      */
-    async _loadGoogleAPIWithRetry() {
-        while (this.loadAttempts < this.maxLoadAttempts) {
-            try {
-                this.loadAttempts++;
-                console.log(`Intento ${this.loadAttempts} - Cargando Google API...`);
-                
-                await this._loadGoogleAPI();
-                this.isApiLoaded = true;
-                return true;
-                
-            } catch (error) {
-                console.warn(`Intento ${this.loadAttempts} falló:`, error);
-                
-                if (this.loadAttempts < this.maxLoadAttempts) {
-                    const delay = Math.pow(2, this.loadAttempts) * 1000;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
+    async _checkNetworkConnectivity() {
+        try {
+            const response = await fetch('https://www.google.com/favicon.ico', {
+                mode: 'no-cors',
+                cache: 'no-cache'
+            });
+            return true;
+        } catch (error) {
+            return false;
         }
-        return false;
+    }
+
+    /**
+     * Crear timeout promise
+     */
+    _createTimeout(ms, message) {
+        return new Promise((_, reject) => {
+            setTimeout(() => reject(new Error(message)), ms);
+        });
+    }
+
+    /**
+     * Cargar ambas APIs de Google
+     */
+    async _loadAPIs() {
+        try {
+            const [gapiLoaded, gsiLoaded] = await Promise.all([
+                this._loadGoogleAPI(),
+                this._loadGoogleIdentityServices()
+            ]);
+
+            return gapiLoaded && gsiLoaded;
+        } catch (error) {
+            console.error('Error loading Google APIs:', error);
+            return false;
+        }
     }
 
     /**
@@ -111,7 +138,7 @@ class CalendarManager {
     _loadGoogleAPI() {
         return new Promise((resolve, reject) => {
             if (window.gapi) {
-                resolve();
+                resolve(true);
                 return;
             }
 
@@ -121,20 +148,25 @@ class CalendarManager {
             script.defer = true;
             
             const timeout = setTimeout(() => {
+                cleanup();
+                resolve(false); // No rechazar, solo resolver false
+            }, 5000);
+
+            const cleanup = () => {
+                clearTimeout(timeout);
                 script.remove();
-                reject(new Error('Google API load timeout (8s)'));
-            }, 8000);
+            };
 
             script.onload = () => {
-                clearTimeout(timeout);
+                cleanup();
                 console.log('✅ Google API script cargado');
-                resolve();
+                resolve(true);
             };
             
-            script.onerror = (error) => {
-                clearTimeout(timeout);
-                script.remove();
-                reject(new Error('Failed to load Google API script'));
+            script.onerror = () => {
+                cleanup();
+                console.warn('⚠️ Failed to load Google API script');
+                resolve(false);
             };
             
             document.head.appendChild(script);
@@ -147,7 +179,7 @@ class CalendarManager {
     _loadGoogleIdentityServices() {
         return new Promise((resolve, reject) => {
             if (window.google?.accounts) {
-                resolve();
+                resolve(true);
                 return;
             }
 
@@ -157,20 +189,25 @@ class CalendarManager {
             script.defer = true;
             
             const timeout = setTimeout(() => {
+                cleanup();
+                resolve(false);
+            }, 5000);
+
+            const cleanup = () => {
+                clearTimeout(timeout);
                 script.remove();
-                reject(new Error('Google Identity Services load timeout'));
-            }, 8000);
+            };
 
             script.onload = () => {
-                clearTimeout(timeout);
+                cleanup();
                 console.log('✅ Google Identity Services cargado');
-                resolve();
+                resolve(true);
             };
             
-            script.onerror = (error) => {
-                clearTimeout(timeout);
-                script.remove();
-                reject(new Error('Failed to load Google Identity Services'));
+            script.onerror = () => {
+                cleanup();
+                console.warn('⚠️ Failed to load Google Identity Services');
+                resolve(false);
             };
             
             document.head.appendChild(script);
@@ -178,18 +215,28 @@ class CalendarManager {
     }
 
     /**
+     * Inicializar ambas APIs
+     */
+    async _initializeAPIs() {
+        if (!window.gapi || !window.google?.accounts) {
+            throw new Error('APIs not loaded');
+        }
+
+        // Inicializar gapi
+        await this._initializeGapi();
+        
+        // Inicializar cliente de identidad
+        await this._initializeIdentityClient();
+    }
+
+    /**
      * Inicializar gapi
      */
     _initializeGapi() {
         return new Promise((resolve, reject) => {
-            if (!window.gapi) {
-                reject(new Error('gapi not available'));
-                return;
-            }
-
             const timeoutId = setTimeout(() => {
                 reject(new Error('gapi.load timeout'));
-            }, 10000);
+            }, 5000);
 
             try {
                 window.gapi.load('client', {
@@ -197,7 +244,6 @@ class CalendarManager {
                         try {
                             clearTimeout(timeoutId);
                             
-                            // Inicializar cliente solo con API Key
                             await window.gapi.client.init({
                                 apiKey: this.API_KEY,
                                 discoveryDocs: [this.DISCOVERY_DOC]
@@ -237,7 +283,8 @@ class CalendarManager {
             scope: this.SCOPES,
             callback: (tokenResponse) => {
                 if (tokenResponse.error !== undefined) {
-                    throw new Error(tokenResponse.error);
+                    console.error('Token error:', tokenResponse.error);
+                    return;
                 }
                 this.accessToken = tokenResponse.access_token;
                 console.log('✅ Token de acceso obtenido');
@@ -257,7 +304,10 @@ class CalendarManager {
                 if (!initialized) return false;
             }
 
-            // Con GIS, verificamos si tenemos un token válido
+            if (this.fallbackMode) {
+                return false; // En modo fallback, no hay autenticación
+            }
+
             return !!this.accessToken;
 
         } catch (error) {
@@ -274,8 +324,13 @@ class CalendarManager {
             if (!this.isInitialized) {
                 const initialized = await this.init();
                 if (!initialized) {
-                    throw new Error('API not initialized');
+                    return false;
                 }
+            }
+
+            if (this.fallbackMode) {
+                console.log('⚠️ En modo fallback, no hay autenticación disponible');
+                return false;
             }
 
             if (this.accessToken) {
@@ -286,16 +341,14 @@ class CalendarManager {
             console.log('🔐 Solicitando autenticación...');
             
             return new Promise((resolve, reject) => {
-                // Configurar callback temporal
                 const originalCallback = this.tokenClient.callback;
                 
                 this.tokenClient.callback = (tokenResponse) => {
-                    // Restaurar callback original
                     this.tokenClient.callback = originalCallback;
                     
                     if (tokenResponse.error !== undefined) {
                         console.error('❌ Error en autenticación:', tokenResponse.error);
-                        reject(new Error(tokenResponse.error));
+                        resolve(false); // No rechazar, resolver false
                         return;
                     }
                     
@@ -304,7 +357,6 @@ class CalendarManager {
                     resolve(true);
                 };
 
-                // Solicitar token
                 this.tokenClient.requestAccessToken({
                     prompt: 'consent'
                 });
@@ -317,18 +369,23 @@ class CalendarManager {
     }
 
     /**
-     * Crear evento en Google Calendar con GIS
+     * Crear evento en Google Calendar
      */
     async createAppointmentEvent(appointmentData) {
         try {
             console.log('📅 Creando evento en calendario...');
 
-            // Verificar disponibilidad de la API
             if (!this.isInitialized) {
                 const initialized = await this.init();
                 if (!initialized) {
-                    return this._generateFallbackResponse(appointmentData, 'API not available');
+                    return this._generateFallbackResponse(appointmentData, 'Calendar API not available');
                 }
+            }
+
+            // Si estamos en modo fallback, devolver enlace manual directamente
+            if (this.fallbackMode) {
+                console.log('📅 Usando modo fallback - generando enlace manual');
+                return this._generateFallbackResponse(appointmentData, 'Using manual calendar link');
             }
 
             // Verificar autenticación
@@ -340,7 +397,7 @@ class CalendarManager {
                 }
             }
 
-            // Configurar token de acceso para las requests
+            // Configurar token de acceso
             this.gapi.client.setToken({
                 access_token: this.accessToken
             });
@@ -361,11 +418,12 @@ class CalendarManager {
                 success: true,
                 eventId: response.result.id,
                 htmlLink: response.result.htmlLink,
-                event: response.result
+                event: response.result,
+                fallbackLink: this.generateCalendarLink(appointmentData) // Incluir fallback siempre
             };
 
         } catch (error) {
-            console.warn('⚠️ Error creando evento:', error);
+            console.warn('⚠️ Error creando evento, usando fallback:', error);
             return this._generateFallbackResponse(appointmentData, error.message);
         }
     }
@@ -374,11 +432,15 @@ class CalendarManager {
      * Generar respuesta de fallback con enlace manual
      */
     _generateFallbackResponse(appointmentData, errorMessage) {
+        const fallbackLink = this.generateCalendarLink(appointmentData);
+        
         return {
             success: false,
             error: errorMessage,
-            fallbackLink: this.generateCalendarLink(appointmentData),
-            message: 'No se pudo agregar automáticamente. Usa el enlace para agregar manualmente.'
+            fallbackLink: fallbackLink,
+            message: 'No se pudo agregar automáticamente al calendario. Puedes usar el enlace para agregarlo manualmente.',
+            isOnline: navigator.onLine,
+            hasSecureContext: this._isSecureContext()
         };
     }
 
@@ -491,15 +553,13 @@ class CalendarManager {
      */
     async signOut() {
         try {
-            if (this.accessToken) {
-                // Revocar token usando GIS
+            if (this.accessToken && window.google?.accounts?.oauth2) {
                 window.google.accounts.oauth2.revoke(this.accessToken, () => {
                     console.log('✅ Token revocado');
                 });
                 
                 this.accessToken = null;
                 
-                // Limpiar token del cliente gapi
                 if (this.gapi?.client) {
                     this.gapi.client.setToken(null);
                 }
@@ -513,6 +573,10 @@ class CalendarManager {
      * Verificar disponibilidad del servicio
      */
     isAvailable() {
+        if (this.fallbackMode) {
+            return true; // El enlace manual siempre está disponible
+        }
+        
         return this.isInitialized && 
                this.gapi && 
                this.gapi.client && 
@@ -521,12 +585,25 @@ class CalendarManager {
     }
 
     /**
-     * Obtener información del usuario (requiere scope adicional)
+     * Obtener modo actual
      */
-    getCurrentUser() {
-        // Con GIS, necesitarías un scope adicional para obtener info del perfil
-        // Por ahora retornamos null ya que solo necesitamos acceso al calendario
-        return null;
+    getMode() {
+        return this.fallbackMode ? 'fallback' : 'api';
+    }
+
+    /**
+     * Información de diagnóstico
+     */
+    getDiagnosticInfo() {
+        return {
+            isInitialized: this.isInitialized,
+            fallbackMode: this.fallbackMode,
+            hasSecureContext: this._isSecureContext(),
+            isOnline: navigator.onLine,
+            hasGapi: !!window.gapi,
+            hasGSI: !!window.google?.accounts,
+            hasToken: !!this.accessToken
+        };
     }
 }
 

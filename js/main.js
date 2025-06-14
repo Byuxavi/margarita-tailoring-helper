@@ -1,518 +1,560 @@
-// main.js - Corregido para mejor manejo de Google Calendar y errores
+// js/main.js - Orquestador principal de la aplicación
 import { initLocation } from './modules/location.js';
 import BookingManager from './modules/booking.js';
 import calendarManager from './modules/calendar.js';
 
 class App {
-  constructor() {
-    this.currentLang = 'es';
-    this.isInitialized = false;
-    this.calendarAvailable = false;
-    this.init();
-  }
-
-  async init() {
-    try {
-      this.setupLanguageToggle();
-      await this.initModules();
-      this.setupGlobalErrorHandling();
-      this.isInitialized = true;
-      console.log('✅ App initialized successfully');
-    } catch (error) {
-      console.error('❌ App initialization failed:', error);
-      this.showNotification('Error inicializando la aplicación', 'error');
-    }
-  }
-
-  setupLanguageToggle() {
-    const langToggle = document.getElementById('langToggle');
-    if (langToggle) {
-      langToggle.addEventListener('click', () => {
-        this.currentLang = this.currentLang === 'es' ? 'en' : 'es';
+    constructor() {
+        this.modules = new Map();
+        this.isInitialized = false;
+        this.initStartTime = Date.now();
+        this.config = {
+            maxInitTime: 15000, // 15 segundos máximo para inicialización
+            moduleTimeout: 10000, // 10 segundos por módulo
+            retryAttempts: 1
+        };
         
-        document.querySelectorAll('[data-es][data-en]').forEach(el => {
-          const text = el.getAttribute(`data-${this.currentLang}`);
-          if (text) {
-            el.textContent = text;
-          }
-        });
-        
-        langToggle.textContent = this.currentLang === 'es' ? 'EN' : 'ES';
-      });
-    }
-  }
-
-  async initModules() {
-    const promises = [];
-
-    // Inicializar módulo de ubicación si existe el mapa
-    if (document.getElementById('map')) {
-      promises.push(
-        this.safeInitModule('Location', () => initLocation())
-      );
-    }
-    
-    // Inicializar módulo de reservas si existe el formulario
-    if (document.getElementById('bookingForm')) {
-      promises.push(
-        this.safeInitModule('Booking', () => this.initBookingModule())
-      );
-      
-      // Intentar inicializar calendar de forma no bloqueante
-      promises.push(
-        this.safeInitModule('Calendar', () => this.initCalendarIntegration())
-      );
+        // Estado de módulos
+        this.moduleStatus = {
+            booking: 'pending',
+            calendar: 'pending',
+            location: 'pending'
+        };
     }
 
-    // Esperar a que todos los módulos se inicialicen
-    if (promises.length > 0) {
-      const results = await Promise.allSettled(promises);
-      
-      // Log de resultados para debugging
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.warn(`Module ${index} failed:`, result.reason);
-        }
-      });
-    }
-  }
-
-  async safeInitModule(moduleName, initFunction) {
-    try {
-      await initFunction();
-      console.log(`✅ ${moduleName} module initialized`);
-      return true;
-    } catch (error) {
-      console.warn(`⚠️ ${moduleName} module failed to initialize:`, error);
-      // No lanzar error para no bloquear otros módulos
-      return false;
-    }
-  }
-
-  async initBookingModule() {
-    // El BookingManager ya se inicializa automáticamente
-    // Solo verificamos que esté disponible
-    if (window.bookingManager) {
-      console.log('✅ Booking module already initialized');
-      return true;
-    }
-    
-    // Si no existe, esperamos un poco y reintentamos
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (!window.bookingManager) {
-      throw new Error('BookingManager not available');
-    }
-    
-    return true;
-  }
-
-  async initCalendarIntegration() {
-    try {
-      console.log('🔄 Intentando inicializar Google Calendar...');
-      
-      // Verificar si estamos en un contexto seguro
-      if (!this.isSecureContext()) {
-        console.warn('⚠️ Google Calendar requiere HTTPS - funcionalidad limitada');
-        return false;
-      }
-
-      // Intentar inicializar con timeout más corto
-      const initPromise = calendarManager.init();
-      
-      // Timeout más corto para no bloquear
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Calendar init timeout')), 10000);
-      });
-
-      const result = await Promise.race([initPromise, timeoutPromise]);
-      
-      if (result) {
-        this.calendarAvailable = true;
-        console.log('✅ Google Calendar integration ready');
-        
-        // Integrar con el booking manager
-        this.integrateCalendarWithBooking();
-        
-        return true;
-      } else {
-        throw new Error('Calendar initialization failed');
-      }
-      
-    } catch (error) {
-      console.warn('⚠️ Google Calendar no disponible:', error.message);
-      this.calendarAvailable = false;
-      
-      // Mostrar notificación informativa solo si es un error de configuración
-      if (error.message.includes('deprecated') || error.message.includes('idpiframe')) {
-        console.warn('📝 Nota: Google Calendar usa APIs deprecadas - se necesita actualización');
-      }
-      
-      // No mostrar error al usuario - el booking funcionará sin calendar
-      return false;
-    }
-  }
-
-  isSecureContext() {
-    return location.protocol === 'https:' || 
-           location.hostname === 'localhost' || 
-           location.hostname === '127.0.0.1';
-  }
-
-  integrateCalendarWithBooking() {
-    if (!window.bookingManager || !this.calendarAvailable) {
-      return;
-    }
-
-    try {
-      // Extender el BookingManager para incluir calendar
-      const originalHandleSubmit = window.bookingManager.handleSubmit;
-      
-      window.bookingManager.handleSubmit = async function(form) {
+    /**
+     * Inicializar aplicación principal
+     */
+    async init() {
         try {
-          // Ejecutar el proceso normal de booking
-          await originalHandleSubmit.call(this, form);
-          
-          // Si el booking fue exitoso, intentar agregar al calendar
-          if (window.app.calendarAvailable) {
-            const formData = new FormData(form);
-            const appointmentData = {
-              fullName: `${formData.get('firstName')} ${formData.get('lastName')}`,
-              email: formData.get('email'),
-              phone: formData.get('phone'),
-              service: formData.get('service'),
-              appointmentDate: formData.get('date'),
-              appointmentTime: formData.get('time'),
-              description: formData.get('description') || '',
-              notes: formData.get('pickup') ? 'Recolección a domicilio' : ''
-            };
+            console.log('🚀 Iniciando Margarita\'s Tailoring App...');
             
-            // Intentar agregar al calendar (no bloqueante)
-            window.app.addToCalendar(appointmentData);
-          }
-          
+            // Configurar manejadores globales de error
+            this.setupGlobalErrorHandlers();
+            
+            // Inicializar módulos
+            await this.initModules();
+            
+            this.isInitialized = true;
+            
+            // Configurar notificaciones de usuario
+            this.setupUserNotifications();
+            
+            const initTime = Date.now() - this.initStartTime;
+            console.log(`✅ App inicializada en ${initTime}ms`);
+            
+            // Mostrar estado de módulos al usuario
+            this.displayModuleStatus();
+            
         } catch (error) {
-          throw error; // Re-lanzar para mantener el comportamiento original
+            console.error('❌ Error crítico inicializando app:', error);
+            this.handleCriticalError(error);
         }
-      };
-      
-      console.log('✅ Calendar integrado con booking');
-      
-    } catch (error) {
-      console.warn('⚠️ Error integrando calendar:', error);
     }
-  }
 
-  async addToCalendar(appointmentData) {
-    try {
-      console.log('📅 Intentando agregar evento al calendario...');
-      
-      const result = await calendarManager.createAppointmentEvent(appointmentData);
-      
-      if (result.success) {
-        this.showNotification('✅ Evento agregado al calendario', 'success');
-      } else {
-        console.warn('Calendar fallback:', result.message);
+    /**
+     * Inicializar todos los módulos de forma segura
+     */
+    async initModules() {
+        console.log('📦 Inicializando módulos...');
         
-        // Mostrar link manual si está disponible
-        if (result.fallbackLink) {
-          this.showCalendarFallback(result.fallbackLink);
+        const moduleInitializers = [
+            { name: 'booking', init: () => this.safeInitModule('booking', () => this.initBookingModule()) },
+            { name: 'calendar', init: () => this.safeInitModule('calendar', () => this.initCalendarIntegration()) },
+            { name: 'location', init: () => this.safeInitModule('location', () => this.initLocationModule()) }
+        ];
+
+        // Inicializar módulos en paralelo con manejo de errores individual
+        const results = await Promise.allSettled(
+            moduleInitializers.map(module => module.init())
+        );
+
+        // Procesar resultados
+        results.forEach((result, index) => {
+            const moduleName = moduleInitializers[index].name;
+            
+            if (result.status === 'fulfilled' && result.value) {
+                this.moduleStatus[moduleName] = 'success';
+                console.log(`✅ Módulo ${moduleName} inicializado correctamente`);
+            } else {
+                this.moduleStatus[moduleName] = 'error';
+                const error = result.status === 'rejected' ? result.reason : 'Unknown error';
+                console.warn(`⚠️ Módulo ${moduleName} falló: ${error.message || error}`);
+            }
+        });
+
+        // Verificar si al menos el módulo de booking está funcionando (crítico)
+        if (this.moduleStatus.booking !== 'success') {
+            throw new Error('Critical booking module failed to initialize');
         }
-      }
-      
-    } catch (error) {
-      console.warn('Error agregando al calendario:', error);
-      // No mostrar error - el booking ya fue exitoso
-    }
-  }
 
-  showCalendarFallback(link) {
-    // Crear un modal simple para mostrar el link del calendario
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 10000;
-    `;
-    
-    const content = document.createElement('div');
-    content.style.cssText = `
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      max-width: 400px;
-      text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    `;
-    
-    content.innerHTML = `
-      <h3 style="margin: 0 0 15px 0; color: #333;">Agregar al Calendario</h3>
-      <p style="margin: 0 0 20px 0; color: #666;">Haz clic en el enlace para agregar manualmente:</p>
-      <a href="${link}" target="_blank" 
-         style="display: inline-block; background: #4285f4; color: white; 
-                padding: 10px 20px; border-radius: 5px; text-decoration: none;
-                margin-bottom: 15px;">
-        📅 Abrir Google Calendar
-      </a>
-      <br>
-      <button onclick="this.closest('.calendar-modal').remove()" 
-              style="background: #ccc; border: none; padding: 8px 16px; 
-                     border-radius: 4px; cursor: pointer;">
-        Cerrar
-      </button>
-    `;
-    
-    modal.className = 'calendar-modal';
-    modal.appendChild(content);
-    document.body.appendChild(modal);
-    
-    // Auto-cerrar en 10 segundos
-    setTimeout(() => {
-      if (modal.parentNode) {
-        modal.remove();
-      }
-    }, 10000);
-  }
-
-  setupGlobalErrorHandling() {
-    // Manejar errores JavaScript globales
-    window.addEventListener('error', (e) => {
-      // Filtrar errores conocidos que no son críticos
-      if (this.isKnownNonCriticalError(e.error)) {
-        console.warn('Non-critical error:', e.error?.message || e.error);
-        return;
-      }
-
-      console.error('Global error:', e.error);
-      
-      // Solo mostrar notificación para errores que afectan la funcionalidad
-      if (this.isCriticalError(e.error)) {
-        this.showNotification('Ha ocurrido un error inesperado', 'error');
-      }
-    });
-
-    // Manejar promesas rechazadas no capturadas
-    window.addEventListener('unhandledrejection', (e) => {
-      // Filtrar rechazos conocidos que no son críticos
-      if (this.isKnownNonCriticalError(e.reason)) {
-        console.warn('Non-critical promise rejection:', e.reason?.message || e.reason);
-        e.preventDefault();
-        return;
-      }
-
-      console.error('Unhandled promise rejection:', e.reason);
-      
-      // Prevenir que aparezca en consola del navegador para errores no críticos
-      if (!this.isCriticalError(e.reason)) {
-        e.preventDefault();
-      }
-    });
-  }
-
-  // Verificar si un error es conocido y no crítico
-  isKnownNonCriticalError(error) {
-    if (!error) return true;
-    
-    const errorString = error.toString ? error.toString() : String(error);
-    
-    // Errores conocidos que no afectan funcionalidad core
-    const nonCriticalPatterns = [
-      'gapi load timeout',
-      'timeout parameter',
-      'ontimeout parameter',
-      'failed to load google api',
-      'gapi.load',
-      'apis.google.com',
-      'access-control-allow-origin',
-      'cors',
-      'idpiframe',
-      'initialization_failed',
-      'deprecated',
-      'new libraries instead',
-      'migration guide',
-      'calendar init timeout',
-      'could not establish connection',
-      'receiving end does not exist',
-      'message channel closed',
-      'content security policy',
-      'script-src',
-      'gstatic.com'
-    ];
-
-    return nonCriticalPatterns.some(pattern => 
-      errorString.toLowerCase().includes(pattern.toLowerCase())
-    );
-  }
-
-  // Verificar si un error es crítico para la funcionalidad
-  isCriticalError(error) {
-    if (!error) return false;
-    
-    const errorString = error.toString ? error.toString() : String(error);
-    
-    // Errores críticos que afectan funcionalidad principal
-    const criticalPatterns = [
-      'bookingmanager not available',
-      'emailjs not available',
-      'form submission failed',
-      'network error',
-      'server error',
-      'email sending failed'
-    ];
-
-    return criticalPatterns.some(pattern => 
-      errorString.toLowerCase().includes(pattern.toLowerCase())
-    );
-  }
-
-  // Método utilitario para mostrar notificaciones
-  showNotification(message, type = 'info') {
-    // Verificar si ya existe un contenedor de notificaciones  
-    let container = document.getElementById('notification-container');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'notification-container';
-      container.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 9999;
-        max-width: 300px;
-        pointer-events: none;
-      `;
-      document.body.appendChild(container);
+        console.log('📦 Inicialización de módulos completada');
     }
 
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.style.cssText = `
-      padding: 12px 16px;
-      margin-bottom: 10px;
-      border-radius: 8px;
-      color: white;
-      font-weight: 500;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      transform: translateX(100%);
-      transition: transform 0.3s ease;
-      pointer-events: auto;
-      cursor: pointer;
-      background-color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
-    `;
-    notification.textContent = message;
-    
-    // Permitir cerrar al hacer clic
-    notification.addEventListener('click', () => {
-      this.removeNotification(notification);
-    });
-    
-    container.appendChild(notification);
-    
-    // Animar entrada
-    setTimeout(() => {
-      notification.style.transform = 'translateX(0)';
-    }, 10);
-    
-    // Auto-remover
-    const duration = type === 'error' ? 8000 : 5000;
-    setTimeout(() => {
-      this.removeNotification(notification);
-    }, duration);
-  }
-
-  removeNotification(notification) {
-    if (notification && notification.parentNode) {
-      notification.style.transform = 'translateX(100%)';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.remove();
+    /**
+     * Inicializar un módulo de forma segura con timeout y reintentos
+     */
+    async safeInitModule(moduleName, initFunction, retries = this.config.retryAttempts) {
+        let lastError;
+        
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                console.log(`🔄 Inicializando ${moduleName}${attempt > 0 ? ` (intento ${attempt + 1})` : ''}...`);
+                
+                // Ejecutar con timeout
+                const initPromise = initFunction();
+                const timeoutPromise = this.createTimeout(
+                    this.config.moduleTimeout, 
+                    `${moduleName} initialization timeout`
+                );
+                
+                const result = await Promise.race([initPromise, timeoutPromise]);
+                
+                if (result !== false) {
+                    return true;
+                }
+                
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ ${moduleName} falló en intento ${attempt + 1}:`, error.message);
+                
+                if (attempt < retries) {
+                    await this.delay(1000 * (attempt + 1)); // Backoff exponencial
+                }
+            }
         }
-      }, 300);
+        
+        // Si llegamos aquí, todos los intentos fallaron
+        console.error(`❌ ${moduleName} falló después de ${retries + 1} intentos:`, lastError);
+        return false;
     }
-  }
 
-  // Método utilitario estático para uso desde otros módulos
-  static showNotification(message, type = 'info') {
-    if (window.app && window.app.isInitialized) {
-      window.app.showNotification(message, type);
-    } else {
-      // Fallback si no hay instancia de app
-      console.log(`${type.toUpperCase()}: ${message}`);
-    }
-  }
-
-  // Método para obtener el idioma actual
-  getCurrentLanguage() {
-    return this.currentLang;
-  }
-
-  // Método para cambiar idioma programáticamente
-  setLanguage(lang) {
-    if (lang !== this.currentLang && (lang === 'es' || lang === 'en')) {
-      this.currentLang = lang;
-      
-      document.querySelectorAll('[data-es][data-en]').forEach(el => {
-        const text = el.getAttribute(`data-${this.currentLang}`);
-        if (text) {
-          el.textContent = text;
+    /**
+     * Inicializar módulo de reservas (crítico)
+     */
+    async initBookingModule() {
+        try {
+            // El BookingManager se inicializa automáticamente en su constructor
+            // Solo verificamos que esté disponible
+            if (window.bookingManager) {
+                this.modules.set('booking', window.bookingManager);
+                console.log('✅ BookingManager ya inicializado');
+                return true;
+            }
+            
+            // Si no existe, crear una nueva instancia
+            const bookingManager = new BookingManager();
+            this.modules.set('booking', bookingManager);
+            
+            // Esperar a que se inicialice completamente
+            let attempts = 0;
+            const maxAttempts = 20; // 10 segundos
+            
+            while (!bookingManager.isReady() && attempts < maxAttempts) {
+                await this.delay(500);
+                attempts++;
+            }
+            
+            if (bookingManager.isReady()) {
+                console.log('✅ BookingManager inicializado correctamente');
+                return true;
+            } else {
+                console.warn('⚠️ BookingManager inicializado pero no completamente listo');
+                return true; // Aún permitir continuar
+            }
+            
+        } catch (error) {
+            console.error('❌ Error inicializando BookingManager:', error);
+            throw error;
         }
-      });
-      
-      const langToggle = document.getElementById('langToggle');
-      if (langToggle) {
-        langToggle.textContent = this.currentLang === 'es' ? 'EN' : 'ES';
-      }
     }
-  }
 
-  // Método para verificar si la app está lista
-  isReady() {
-    return this.isInitialized;
-  }
+    /**
+     * Inicializar integración con Google Calendar
+     */
+    async initCalendarIntegration() {
+        try {
+            console.log('📅 Inicializando Google Calendar...');
+            
+            // Inicializar el calendar manager
+            const initialized = await calendarManager.init();
+            
+            if (initialized) {
+                this.modules.set('calendar', calendarManager);
+                
+                const mode = calendarManager.getMode();
+                const diagnostic = calendarManager.getDiagnosticInfo();
+                
+                console.log('📅 Calendar Manager Status:', {
+                    mode: mode,
+                    ...diagnostic
+                });
+                
+                if (mode === 'fallback') {
+                    console.log('📅 Google Calendar en modo fallback - Enlaces manuales disponibles');
+                } else {
+                    console.log('✅ Google Calendar API inicializada correctamente');
+                }
+                
+                return true;
+            } else {
+                throw new Error('Calendar manager initialization failed');
+            }
+            
+        } catch (error) {
+            console.warn('⚠️ Error inicializando Google Calendar:', error);
+            
+            // Intentar usar el calendar manager en modo fallback
+            if (calendarManager.isAvailable()) {
+                this.modules.set('calendar', calendarManager);
+                console.log('📅 Google Calendar disponible en modo fallback');
+                return true;
+            }
+            
+            throw error;
+        }
+    }
 
-  // Método para obtener estados de módulos
-  getModuleStatus() {
-    return {
-      app: this.isInitialized,
-      booking: window.bookingManager?.isReady() || false,
-      calendar: this.calendarAvailable,
-      location: !!window.initLocation
-    };
-  }
+    /**
+     * Inicializar módulo de ubicación/mapas
+     */
+    async initLocationModule() {
+        try {
+            console.log('🗺️ Inicializando módulo de ubicación...');
+            
+            // Verificar si estamos en la página que necesita mapas
+            const needsLocation = document.getElementById('map') || 
+                                 document.querySelector('.location-container') ||
+                                 window.location.pathname.includes('location');
+            
+            if (!needsLocation) {
+                console.log('🗺️ Módulo de ubicación no necesario en esta página');
+                return true;
+            }
+            
+            // Inicializar el módulo de ubicación
+            const locationModule = await initLocation();
+            
+            if (locationModule) {
+                this.modules.set('location', locationModule);
+                console.log('✅ Módulo de ubicación inicializado');
+                return true;
+            } else {
+                throw new Error('Location module initialization failed');
+            }
+            
+        } catch (error) {
+            console.warn('⚠️ Error inicializando módulo de ubicación:', error);
+            // El módulo de ubicación no es crítico, continuar sin él
+            return true;
+        }
+    }
 
-  // Método para verificar disponibilidad de calendar
-  isCalendarAvailable() {
-    return this.calendarAvailable;
-  }
+    /**
+     * Configurar manejadores globales de error
+     */
+    setupGlobalErrorHandlers() {
+        // Errores JavaScript no capturados
+        window.addEventListener('error', (event) => {
+            console.error('❌ Error JavaScript global:', {
+                message: event.message,
+                filename: event.filename,
+                line: event.lineno,
+                column: event.colno,
+                error: event.error
+            });
+            
+            this.handleNonCriticalError(event.error);
+        });
+
+        // Promesas rechazadas no capturadas
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('❌ Promesa rechazada no manejada:', event.reason);
+            
+            // Prevenir que aparezca en la consola del navegador
+            event.preventDefault();
+            
+            this.handleNonCriticalError(event.reason);
+        });
+
+        // Errores de red y recursos
+        window.addEventListener('error', (event) => {
+            if (event.target !== window) {
+                console.warn('⚠️ Error cargando recurso:', {
+                    tag: event.target.tagName,
+                    source: event.target.src || event.target.href,
+                    message: 'Failed to load resource'
+                });
+            }
+        }, true);
+    }
+
+    /**
+     * Configurar sistema de notificaciones para el usuario
+     */
+    setupUserNotifications() {
+        // Crear contenedor de notificaciones si no existe
+        if (!document.getElementById('notification-container')) {
+            const container = document.createElement('div');
+            container.id = 'notification-container';
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                pointer-events: none;
+            `;
+            document.body.appendChild(container);
+        }
+
+        // Hacer disponible globalmente
+        window.App = {
+            showNotification: (message, type = 'info') => this.showNotification(message, type)
+        };
+    }
+
+    /**
+     * Mostrar notificación al usuario
+     */
+    showNotification(message, type = 'info', duration = 5000) {
+        const container = document.getElementById('notification-container');
+        if (!container) return;
+
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-weight: 500;
+            max-width: 300px;
+            word-wrap: break-word;
+            pointer-events: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        `;
+        
+        notification.textContent = message;
+        container.appendChild(notification);
+
+        // Animar entrada
+        setTimeout(() => {
+            notification.style.transform = 'translateX(0)';
+        }, 10);
+
+        // Auto-remover
+        const removeNotification = () => {
+            notification.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        };
+
+        // Click para cerrar
+        notification.addEventListener('click', removeNotification);
+
+        // Auto-remover después del tiempo especificado
+        setTimeout(removeNotification, duration);
+    }
+
+    /**
+     * Mostrar estado de módulos al usuario
+     */
+    displayModuleStatus() {
+        const statusMessages = [];
+        
+        if (this.moduleStatus.booking === 'success') {
+            statusMessages.push('✅ Sistema de reservas listo');
+        } else {
+            statusMessages.push('❌ Sistema de reservas no disponible');
+        }
+
+        if (this.moduleStatus.calendar === 'success') {
+            const calendarMode = calendarManager?.getMode();
+            if (calendarMode === 'fallback') {
+                statusMessages.push('📅 Enlaces de calendario disponibles');
+            } else {
+                statusMessages.push('✅ Integración con Google Calendar activa');
+            }
+        }
+
+        if (this.moduleStatus.location === 'success') {
+            statusMessages.push('🗺️ Mapas disponibles');
+        }
+
+        // Mostrar solo si hay algún problema crítico
+        if (this.moduleStatus.booking !== 'success') {
+            this.showNotification('Sistema de reservas no disponible. Por favor recarga la página.', 'error', 10000);
+        } else if (Object.values(this.moduleStatus).some(status => status === 'error')) {
+            console.log('ℹ️ Estado de módulos:', statusMessages.join(' | '));
+        }
+    }
+
+    /**
+     * Manejar errores críticos
+     */
+    handleCriticalError(error) {
+        console.error('💥 Error crítico de la aplicación:', error);
+        
+        // Mostrar mensaje al usuario
+        this.showNotification(
+            'Error inicializando la aplicación. Por favor recarga la página.', 
+            'error', 
+            15000
+        );
+
+        // Intentar funcionalidad básica
+        this.enableBasicFunctionality();
+    }
+
+    /**
+     * Manejar errores no críticos
+     */
+    handleNonCriticalError(error) {
+        // Solo log, no mostrar al usuario a menos que sea relevante
+        if (error?.message?.includes('booking') || error?.message?.includes('reservation')) {
+            this.showNotification(
+                'Algunos servicios pueden no estar disponibles. Intenta recargar si experimentas problemas.', 
+                'warning'
+            );
+        }
+    }
+
+    /**
+     * Habilitar funcionalidad básica en caso de error crítico
+     */
+    enableBasicFunctionality() {
+        // Asegurar que al menos los enlaces básicos funcionen
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('a[href^="tel:"]') || e.target.matches('a[href^="mailto:"]')) {
+                // Permitir enlaces de teléfono y email siempre
+                return true;
+            }
+        });
+
+        console.log('🔧 Funcionalidad básica habilitada');
+    }
+
+    /**
+     * Utilidades
+     */
+    createTimeout(ms, message = 'Operation timeout') {
+        return new Promise((_, reject) => {
+            setTimeout(() => reject(new Error(message)), ms);
+        });
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Métodos públicos para acceso externo
+     */
+    getModule(name) {
+        return this.modules.get(name);
+    }
+
+    getModuleStatus(name) {
+        return this.moduleStatus[name] || 'unknown';
+    }
+
+    isModuleReady(name) {
+        return this.moduleStatus[name] === 'success';
+    }
+
+    async reloadModule(name) {
+        console.log(`🔄 Recargando módulo ${name}...`);
+        
+        try {
+            let success = false;
+            
+            switch (name) {
+                case 'booking':
+                    success = await this.initBookingModule();
+                    break;
+                case 'calendar':
+                    success = await this.initCalendarIntegration();
+                    break;
+                case 'location':
+                    success = await this.initLocationModule();
+                    break;
+                default:
+                    throw new Error(`Unknown module: ${name}`);
+            }
+            
+            this.moduleStatus[name] = success ? 'success' : 'error';
+            
+            if (success) {
+                this.showNotification(`✅ Módulo ${name} recargado exitosamente`, 'success');
+            } else {
+                this.showNotification(`❌ Error recargando módulo ${name}`, 'error');
+            }
+            
+            return success;
+            
+        } catch (error) {
+            console.error(`❌ Error recargando módulo ${name}:`, error);
+            this.moduleStatus[name] = 'error';
+            this.showNotification(`❌ Error recargando módulo ${name}`, 'error');
+            return false;
+        }
+    }
 }
 
-// Inicializar app cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-  window.app = new App();
-});
-
-// Manejar errores de carga del módulo
-window.addEventListener('load', () => {
-  // Verificar que la app esté lista después de la carga
-  setTimeout(() => {
-    if (window.app) {
-      const status = window.app.getModuleStatus();
-      console.log('📊 Module Status:', status);
-      
-      if (!window.app.isReady()) {
-        console.warn('⚠️ App initialization may have failed');
-      }
+// Inicializar la aplicación cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🌟 DOM cargado, inicializando Margarita\'s Tailoring App...');
+    
+    try {
+        window.app = new App();
+        await window.app.init();
+        
+        // Hacer métodos útiles disponibles globalmente para debugging
+        window.appDebug = {
+            reloadModule: (name) => window.app.reloadModule(name),
+            getModuleStatus: (name) => window.app.getModuleStatus(name),
+            showNotification: (msg, type) => window.app.showNotification(msg, type)
+        };
+        
+    } catch (error) {
+        console.error('💥 Error fatal inicializando la aplicación:', error);
+        
+        // Mostrar error básico al usuario
+        document.body.insertAdjacentHTML('afterbegin', `
+            <div style="
+                position: fixed; 
+                top: 0; 
+                left: 0; 
+                right: 0; 
+                background: #ef4444; 
+                color: white; 
+                padding: 15px; 
+                text-align: center; 
+                z-index: 9999;
+                font-weight: 500;
+            ">
+                ⚠️ Error cargando la aplicación. Por favor recarga la página o contacta soporte.
+                <button onclick="location.reload()" style="
+                    margin-left: 15px; 
+                    background: white; 
+                    color: #ef4444; 
+                    border: none; 
+                    padding: 5px 15px; 
+                    border-radius: 4px; 
+                    cursor: pointer;
+                    font-weight: 500;
+                ">
+                    Recargar
+                </button>
+            </div>
+        `);
     }
-  }, 2000);
 });
-
-// Exportar para uso global
-window.App = App;
 
 export default App;
