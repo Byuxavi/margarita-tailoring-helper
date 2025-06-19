@@ -1,29 +1,48 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reservar Cita - Margarita's Tailoring</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="booking.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-</head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Margarita's Tailoring</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="booking.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <meta name="description" content="Margarita's Tailoring - Servicios de alta costura." />
+  <meta property="og:title" content="Margarita's Tailoring" />
+  <meta property="og:description" content="Servicios de alta costura." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#FAB2A1" />
+  <link rel="icon" href="images/Logo.jpg">
 <body>
-    <!-- Header -->
-    <header>
-        <nav>
-            <div class="logo">Margarita's Tailoring</div>
-            <div class="nav-links">
-                <a href="index.html">Inicio</a>
-                <a href="#servicios">Servicios</a>
-                <a href="#ubicacion">Ubicación</a>
-                <a href="booking.html" class="btn-primary">Reservar</a>
-                <button id="langToggle">EN/ES</button>
-            </div>
-        </nav>
-    </header>
+  <nav id="navbar">
+    <div class="container">
+      <div class="logo">
+        <i class="fas fa-cut"></i> 
+        Margarita's<span class="logo-dot">.</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html" class="active" data-es="Inicio" data-en="Home">Inicio</a></li>
+        <li><a href="index.html" data-es="Servicios" data-en="Services">Servicios</a></li>
+        <li><a href="booking.html" data-es="Reservar" data-en="Booking">Reservar</a></li>
+        <li><a href="index.html" data-es="Contacto" data-en="Contact">Contacto</a></li>
+      </ul>
+      <div class="nav-controls">
+        <button id="language-toggle" aria-label="Cambiar idioma">
+          <i class="fas fa-globe"></i>
+          <span id="current-lang">ES</span>
+        </button>
+        <button id="theme-toggle" aria-label="Toggle dark mode">
+          <i class="fas fa-moon"></i>
+        </button>
+        <button class="mobile-menu-btn" aria-label="Menu">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
 
     <!-- Main Content -->
     <main>
@@ -203,14 +222,50 @@
     </div>
 
     <!-- Footer -->
-    <footer>
-        <p data-en="© 2025 Margarita's Tailoring. All rights reserved." data-es="© 2025 Margarita's Tailoring. Todos los derechos reservados.">
-            © 2025 Margarita's Tailoring. Todos los derechos reservados.
+  <footer>
+    <div class="footer-horizontal">
+      <div class="footer-block">
+        <div class="logo">
+          <i class="fas fa-cut"></i> 
+          Margarita's<span class="logo-dot">.</span>
+        </div>
+        <p data-es="Creando experiencias únicas en sastrería." 
+           data-en="Creating unique experiences in tailoring.">
+           Creando experiencias únicas en sastrería.
         </p>
-    </footer>
+      </div>
+ 
+      <div class="footer-block">
+        <h3 data-es="Enlaces Rápidos" data-en="Quick Links">Enlaces Rápidos</h3>
+        <ul>
+          <li><a href="index.html" data-es="Inicio" data-en="Home">Inicio</a></li>
+          <li><a href="index.html" data-es="Servicios" data-en="Services">Servicios</a></li>
+          <li><a href="index.html" data-es="Acerca de" data-en="About">Acerca de</a></li>
+          <li><a href="index.html" data-es="Contacto" data-en="Contact">Contacto</a></li>
+        </ul>
+      </div>
+ 
+      <div class="footer-block">
+        <h3 data-es="Síguenos" data-en="Follow Us">Síguenos</h3>
+        <div class="social-icons">
+          <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+          <a href="#" aria-label="Pinterest"><i class="fab fa-pinterest"></i></a>
+          <a href="#" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+        </div>
+      </div>
+    </div>
+ 
+    <div class="footer-bottom">
+      <p>© 2024 Margarita's Tailoring. 
+          <span data-es="Todos los derechos reservados." data-en="All rights reserved.">
+          Todos los derechos reservados.
+          </span>
+      </p>
+    </div>
+  </footer>
 
-    <!-- Scripts -->
-    <script src="js/modules/booking.js" type="module"></script>
-    <script src="js/main.js" type="module"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="/js/main.js"></script>
 </body>
 </html>

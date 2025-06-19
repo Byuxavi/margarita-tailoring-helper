@@ -1,0 +1,204 @@
+{
+  "services": [
+    {
+      "id": "trajes-medida",
+      "name": {
+        "es": "Trajes a Medida",
+        "en": "Custom Suits"
+      },
+      "type": "formal",
+      "price": {
+        "min": 650,
+        "max": 1200,
+        "currency": "EUR"
+      },
+      "image": "fas fa-user-tie",
+      "materials": ["Lana italiana", "Algodón premium", "Seda"],
+      "duration": "2-3 semanas",
+      "sizes": ["XS", "S", "M", "L", "XL", "XXL", "Personalizada"],
+      "description": {
+        "es": "Trajes elegantes confeccionados completamente a medida con los mejores materiales. Incluye chaqueta, pantalón y chaleco opcional.",
+        "en": "Elegant suits completely tailored with the finest materials. Includes jacket, trousers and optional vest."
+      },
+      "features": {
+        "es": ["Medidas precisas", "3 pruebas incluidas", "Botones personalizados", "Forro premium"],
+        "en": ["Precise measurements", "3 fittings included", "Custom buttons", "Premium lining"]
+      }
+    },
+    {
+      "id": "vestidos-novia",
+      "name": {
+        "es": "Vestidos de Novia",
+        "en": "Wedding Dresses"
+      },
+      "type": "wedding",
+      "price": {
+        "min": 800,
+        "max": 2500,
+        "currency": "EUR"
+      },
+      "image": "fas fa-ring",
+      "materials": ["Encaje francés", "Satén", "Tul", "Mikado"],
+      "duration": "4-6 semanas",
+      "sizes": ["XS", "S", "M", "L", "XL", "Personalizada"],
+      "description": {
+        "es": "Vestidos de novia únicos diseñados especialmente para tu día especial. Cada detalle cuidadosamente elaborado.",
+        "en": "Unique wedding dresses designed especially for your special day. Every detail carefully crafted."
+      },
+      "features": {
+        "es": ["Diseño exclusivo", "Múltiples pruebas", "Velo incluido", "Ajustes post-boda"],
+        "en": ["Exclusive design", "Multiple fittings", "Veil included", "Post-wedding adjustments"]
+      }
+    },
+    {
+      "id": "ropa-casual",
+      "name": {
+        "es": "Ropa Casual",
+        "en": "Casual Wear"
+      },
+      "type": "casual",
+      "price": {
+        "min": 180,
+        "max": 450,
+        "currency": "EUR"
+      },
+      "image": "fas fa-tshirt",
+      "materials": ["Algodón orgánico", "Lino", "Jersey premium"],
+      "duration": "1-2 semanas",
+      "sizes": ["XS", "S", "M", "L", "XL", "XXL"],
+      "description": {
+        "es": "Prendas casuales cómodas y elegantes para el día a día. Perfectas para cualquier ocasión informal.",
+        "en": "Comfortable and elegant casual garments for everyday wear. Perfect for any informal occasion."
+      },
+      "features": {
+        "es": ["Confort garantizado", "Diseños versátiles", "Colores personalizables", "Fácil mantenimiento"],
+        "en": ["Comfort guaranteed", "Versatile designs", "Customizable colors", "Easy maintenance"]
+      }
+    },
+    {
+      "id": "abrigos-chaquetas",
+      "name": {
+        "es": "Abrigos y Chaquetas",
+        "en": "Coats & Jackets"
+      },
+      "type": "outerwear",
+      "price": {
+        "min": 320,
+        "max": 850,
+        "currency": "EUR"
+      },
+      "image": "fas fa-vest",
+      "materials": ["Cachemira", "Lana merino", "Cuero italiano"],
+      "duration": "2-4 semanas",
+      "sizes": ["XS", "S", "M", "L", "XL", "XXL", "Personalizada"],
+      "description": {
+        "es": "Abrigos y chaquetas de alta calidad para protegerte con estilo en cualquier temporada.",
+        "en": "High-quality coats and jackets to protect you in style in any season."
+      },
+      "features": {
+        "es": ["Resistente al agua", "Forros térmicos", "Bolsillos funcionales", "Corte anatómico"],
+        "en": ["Water resistant", "Thermal linings", "Functional pockets", "Anatomical cut"]
+      }
+    },
+    {
+      "id": "uniformes-empresa",
+      "name": {
+        "es": "Uniformes de Empresa",
+        "en": "Corporate Uniforms"
+      },
+      "type": "corporate",
+      "price": {
+        "min": 95,
+        "max": 280,
+        "currency": "EUR"
+      },
+      "image": "fas fa-briefcase",
+      "materials": ["Poliéster técnico", "Algodón-poliéster", "Microfibra"],
+      "duration": "1-3 semanas",
+      "sizes": ["XS", "S", "M", "L", "XL", "XXL", "XXXL"],
+      "description": {
+        "es": "Uniformes profesionales para empresas. Diseños funcionales que reflejan la imagen corporativa.",
+        "en": "Professional uniforms for companies. Functional designs that reflect corporate image."
+      },
+      "features": {
+        "es": ["Logo bordado", "Tejidos técnicos", "Fácil lavado", "Pedidos en lote"],
+        "en": ["Embroidered logo", "Technical fabrics", "Easy washing", "Bulk orders"]
+      }
+    },
+    {
+      "id": "ropa-infantil",
+      "name": {
+        "es": "Ropa Infantil",
+        "en": "Children's Clothing"
+      },
+      "type": "children",
+      "price": {
+        "min": 45,
+        "max": 150,
+        "currency": "EUR"
+      },
+      "image": "fas fa-child",
+      "materials": ["Algodón orgánico", "Bambú", "Jersey suave"],
+      "duration": "1-2 semanas",
+      "sizes": ["2-4 años", "4-6 años", "6-8 años", "8-10 años", "10-12 años", "12-14 años"],
+      "description": {
+        "es": "Ropa cómoda y segura para niños. Materiales hipoalergénicos y diseños divertidos.",
+        "en": "Comfortable and safe clothing for children. Hypoallergenic materials and fun designs."
+      },
+      "features": {
+        "es": ["Materiales seguros", "Costuras reforzadas", "Colores vivos", "Crecimiento adaptable"],
+        "en": ["Safe materials", "Reinforced seams", "Bright colors", "Growth adaptable"]
+      }
+    },
+    {
+      "id": "arreglos-ajustes",
+      "name": {
+        "es": "Arreglos y Ajustes",
+        "en": "Alterations & Adjustments"
+      },
+      "type": "alterations",
+      "price": {
+        "min": 15,
+        "max": 85,
+        "currency": "EUR"
+      },
+      "image": "fas fa-scissors",
+      "materials": ["Hilos de calidad", "Cremalleras YKK", "Botones premium"],
+      "duration": "2-5 días",
+      "sizes": ["Todas las tallas"],
+      "description": {
+        "es": "Servicio de arreglos y ajustes para que tus prendas favoritas te queden perfectas.",
+        "en": "Alteration and adjustment service to make your favorite garments fit perfectly."
+      },
+      "features": {
+        "es": ["Servicio rápido", "Precios económicos", "Garantía de calidad", "Recogida a domicilio"],
+        "en": ["Fast service", "Affordable prices", "Quality guarantee", "Home pickup"]
+      }
+    },
+    {
+      "id": "accesorios-personalizados",
+      "name": {
+        "es": "Accesorios Personalizados",
+        "en": "Custom Accessories"
+      },
+      "type": "accessories",
+      "price": {
+        "min": 25,
+        "max": 120,
+        "currency": "EUR"
+      },
+      "image": "fas fa-gem",
+      "materials": ["Cuero genuino", "Seda natural", "Metal premium"],
+      "duration": "1-2 semanas",
+      "sizes": ["Único", "Personalizable"],
+      "description": {
+        "es": "Corbatas, pañuelos, cinturones y otros accesorios únicos hechos a medida para complementar tu estilo.",
+        "en": "Ties, scarves, belts and other unique accessories made to measure to complement your style."
+      },
+      "features": {
+        "es": ["Diseños únicos", "Materiales premium", "Personalizables", "Perfectos para regalar"],
+        "en": ["Unique designs", "Premium materials", "Customizable", "Perfect for gifts"]
+      }
+    }
+  ]
+}

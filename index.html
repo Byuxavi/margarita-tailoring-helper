@@ -1,85 +1,317 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Margarita's Tailoring - Sastrería Profesional en Utah</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Margarita's Tailoring</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Open+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <meta name="description" content="Margarita's Tailoring - Servicios de alta costura." />
+  <meta property="og:title" content="Margarita's Tailoring" />
+  <meta property="og:description" content="Servicios de alta costura." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#FAB2A1" />
+  <link rel="icon" href="images/Logo.jpg">
 </head>
 <body>
-    <header>
-        <nav>
-            <div class="logo">Margarita's Tailoring</div>
-            <div class="nav-links">
-                <a href="#servicios">Servicios</a>
-                <a href="#ubicacion">Ubicación</a>
-                <a href="booking.html" class="btn-primary">Reservar Cita</a>
-                <button id="langToggle">EN</button>
+  <nav id="navbar">
+    <div class="container">
+      <div class="logo">
+        <i class="fas fa-cut"></i> 
+        Margarita's<span class="logo-dot">.</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#home" class="active" data-es="Inicio" data-en="Home">Inicio</a></li>
+        <li><a href="#services" data-es="Servicios" data-en="Services">Servicios</a></li>
+        <li><a href="booking.html" data-es="Reservar" data-en="Booking">Reservar</a></li>
+        <li><a href="#contact" data-es="Contacto" data-en="Contact">Contacto</a></li>
+      </ul>
+      <div class="nav-controls">
+        <button id="language-toggle" aria-label="Cambiar idioma">
+          <i class="fas fa-globe"></i>
+          <span id="current-lang">ES</span>
+        </button>
+        <button id="theme-toggle" aria-label="Toggle dark mode">
+          <i class="fas fa-moon"></i>
+        </button>
+        <button class="mobile-menu-btn" aria-label="Menu">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="home">
+    <div class="container">
+      <div class="hero-content">
+        <h1 data-es="Bienvenido a <span class='highlight'>Margarita's Tailoring</span>" 
+            data-en="Welcome to <span class='highlight'>Margarita's Tailoring</span>">
+            Bienvenido a <span class="highlight">Margarita's Tailoring</span>
+        </h1>
+        <p class="hero-subtitle" 
+           data-es="Sastrería moderna creando piezas únicas y con atención al detalle."
+           data-en="Modern tailoring creating unique pieces with attention to detail.">
+           Sastrería moderna creando piezas únicas y con atención al detalle.
+        </p>
+        <div class="hero-cta">
+          <a href="#services" class="btn primary-btn" 
+             data-es="Ver Servicios" data-en="View Services">Ver Servicios</a>
+          <a href="#contact" class="btn secondary-btn" 
+             data-es="Reservar Cita" data-en="Book Appointment">Reservar Cita</a>
+        </div>
+        <div class="hero-tags">
+          <span class="tag">
+            <i class="fas fa-scissors"></i> 
+            <span data-es="Alta Costura" data-en="Haute Couture">Alta Costura</span>
+          </span>
+          <span class="tag">
+            <i class="fas fa-award"></i> 
+            <span data-es="Calidad Premium" data-en="Premium Quality">Calidad Premium</span>
+          </span>
+        </div>
+      </div>
+      <div class="hero-image">
+        <div class="hero-shape">
+          <i class="fas fa-tshirt hero-icon"></i>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="visit-counter">
+    <div class="container">
+      <div class="counter-content">
+        <i class="fas fa-eye"></i>
+        <span data-es="Visitas al sitio:" data-en="Site visits:">Visitas al sitio:</span>
+        <span id="visit-count">Cargando...</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="about" id="about">
+    <div class="container">
+      <div class="section-header">
+        <h2 data-es="Acerca de Nosotros" data-en="About Us">Acerca de Nosotros</h2>
+        <p class="section-subheading" 
+           data-es="Tradición y modernidad en cada puntada" 
+           data-en="Tradition and modernity in every stitch">
+           Tradición y modernidad en cada puntada
+        </p>
+      </div>
+      <div class="about-content">
+        <div class="about-text">
+          <p data-es="En Margarita's Tailoring combinamos técnicas tradicionales de sastrería con diseños modernos. Cada pieza es única y está confeccionada con el máximo cuidado y atención al detalle."
+             data-en="At Margarita's Tailoring we combine traditional tailoring techniques with modern designs. Each piece is unique and crafted with utmost care and attention to detail.">
+             En Margarita's Tailoring combinamos técnicas tradicionales de sastrería con diseños modernos. Cada pieza es única y está confeccionada con el máximo cuidado y atención al detalle.
+          </p>
+          <div class="about-stats">
+            <div class="stat">
+              <span class="stat-number">15+</span>
+              <span class="stat-label" data-es="Años de Experiencia" data-en="Years Experience">Años de Experiencia</span>
             </div>
-        </nav>
-    </header>
-
-    <main>
-        <section class="hero">
-            <div class="hero-content">
-                <h1 data-es="Sastrería Profesional en Utah" data-en="Professional Tailoring in Utah">Sastrería Profesional en Utah</h1>
-                <p data-es="Más de 15 años de experiencia creando y ajustando prendas perfectas" data-en="Over 15 years of experience creating and tailoring perfect garments">Más de 15 años de experiencia creando y ajustando prendas perfectas</p>
-                <a href="booking.html" class="btn-hero" data-es="Agendar Cita" data-en="Book Appointment">Agendar Cita</a>
+            <div class="stat">
+              <span class="stat-number">500+</span>
+              <span class="stat-label" data-es="Piezas Creadas" data-en="Pieces Created">Piezas Creadas</span>
             </div>
-        </section>
-
-        <section id="servicios" class="services">
-            <h2 data-es="Nuestros Servicios" data-en="Our Services">Nuestros Servicios</h2>
-            <div class="services-grid">
-                <div class="service-card">
-                    <h3 data-es="Ajustes de Ropa" data-en="Clothing Alterations">Ajustes de Ropa</h3>
-                    <p data-es="Pantalones, faldas, vestidos y más" data-en="Pants, skirts, dresses and more">Pantalones, faldas, vestidos y más</p>
-                    <span class="price">$15 - $45</span>
-                </div>
-                <div class="service-card">
-                    <h3 data-es="Reparaciones" data-en="Repairs">Reparaciones</h3>
-                    <p data-es="Cremalleras, botones, zurcido" data-en="Zippers, buttons, darning">Cremalleras, botones, zurcido</p>
-                    <span class="price">$10 - $30</span>
-                </div>
-                <div class="service-card">
-                    <h3 data-es="Confección a Medida" data-en="Custom Tailoring">Confección a Medida</h3>
-                    <p data-es="Vestidos, trajes, ropa formal" data-en="Dresses, suits, formal wear">Vestidos, trajes, ropa formal</p>
-                    <span class="price">$80 - $300</span>
-                </div>
-                <div class="service-card">
-                    <h3 data-es="Arreglos Express" data-en="Express Alterations">Arreglos Express</h3>
-                    <p data-es="Servicio urgente en 24-48 horas" data-en="Urgent service in 24-48 hours">Servicio urgente en 24-48 horas</p>
-                    <span class="price">+$20</span>
-                </div>
+            <div class="stat">
+              <span class="stat-number">100%</span>
+              <span class="stat-label" data-es="Satisfacción del Cliente" data-en="Client Satisfaction">Satisfacción del Cliente</span>
             </div>
-        </section>
+          </div>
+          <a href="#services" class="btn outline-btn" 
+             data-es="Nuestros Servicios" data-en="Our Services">Nuestros Servicios</a>
+        </div>
+        <div class="about-image">
+          <div class="about-img-placeholder">
+            <i class="fas fa-user-tie"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        <section id="ubicacion" class="location">
-            <h2 data-es="Nuestra Ubicación" data-en="Our Location">Nuestra Ubicación</h2>
-            <div class="location-content">
-                <div class="location-info">
-                    <div class="address">
-                        <h3 data-es="Dirección" data-en="Address">Dirección</h3>
-                        <p>88 W 50 S Unit E2<br>Centerville, UTAH 84014</p>
-                    </div>
-                    <div class="hours">
-                        <h3 data-es="Horarios" data-en="Hours">Horarios</h3>
-                        <p data-es="Lunes - Viernes: 9:00 AM - 6:00 PM<br>Sábado: 10:00 AM - 4:00 PM<br>Domingo: Cerrado" data-en="Monday - Friday: 9:00 AM - 6:00 PM<br>Saturday: 10:00 AM - 4:00 PM<br>Sunday: Closed">Lunes - Viernes: 9:00 AM - 6:00 PM<br>Sábado: 10:00 AM - 4:00 PM<br>Domingo: Cerrado</p>
-                    </div>
-                    <div class="contact">
-                        <h3 data-es="Contacto" data-en="Contact">Contacto</h3>
-                        <p>📞 (801) 555-0123<br>📧 margarita@tailoring.com</p>
-                    </div>
-                </div>
-                <div id="map" class="map-container"></div>
+  <section class="services" id="services">
+    <div class="container">
+      <div class="section-header">
+        <h2 data-es="Nuestros Servicios" data-en="Our Services">Nuestros Servicios</h2>
+        <p class="section-subheading" 
+           data-es="Servicios de sastrería personalizados" 
+           data-en="Personalized tailoring services">
+           Servicios de sastrería personalizados
+        </p>
+      </div>
+      <div class="services-grid" id="services-container">
+        </div>
+    </div>
+  </section>
+
+  <section class="process">
+    <div class="container">
+      <div class="section-header">
+        <h2 data-es="Nuestro Proceso" data-en="Our Process">Nuestro Proceso</h2>
+        <p class="section-subheading" 
+           data-es="Cómo trabajamos en cada proyecto" 
+           data-en="How we work on each project">
+           Cómo trabajamos en cada proyecto
+        </p>
+      </div>
+      <div class="process-steps">
+        <div class="process-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3 data-es="Consulta Inicial" data-en="Initial Consultation">Consulta Inicial</h3>
+            <p data-es="Conversamos sobre tus necesidades, estilo y preferencias para crear la pieza perfecta."
+               data-en="We discuss your needs, style and preferences to create the perfect piece.">
+               Conversamos sobre tus necesidades, estilo y preferencias para crear la pieza perfecta.
+            </p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3 data-es="Diseño y Medidas" data-en="Design & Measurements">Diseño y Medidas</h3>
+            <p data-es="Tomamos medidas precisas y creamos un diseño personalizado solo para ti."
+               data-en="We take precise measurements and create a personalized design just for you.">
+               Tomamos medidas precisas y creamos un diseño personalizado solo para ti.
+            </p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3 data-es="Confección" data-en="Tailoring">Confección</h3>
+            <p data-es="Creamos tu prenda con técnicas tradicionales de alta costura."
+               data-en="We create your garment with traditional haute couture techniques.">
+               Creamos tu prenda con técnicas tradicionales de alta costura.
+            </p>
+          </div>
+        </div>
+        <div class="process-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h3 data-es="Entrega y Ajustes" data-en="Delivery & Adjustments">Entrega y Ajustes</h3>
+            <p data-es="Realizamos ajustes finales para garantizar el ajuste perfecto y tu satisfacción total."
+               data-en="We make final adjustments to ensure perfect fit and your complete satisfaction.">
+               Realizamos ajustes finales para garantizar el ajuste perfecto y tu satisfacción total.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="contact" id="contact">
+    <div class="container">
+      <div class="section-header">
+        <h2 data-es="Contacto y Reservas" data-en="Contact & Reservations">Contacto y Reservas</h2>
+        <p class="section-subheading" 
+           data-es="¿Listo para crear algo único?" 
+           data-en="Ready to create something unique?">
+           ¿Listo para crear algo único?
+        </p>
+      </div>
+      <div class="contact-content">
+        <div class="contact-info">
+          <h3 data-es="Información de Contacto" data-en="Contact Information">Información de Contacto</h3>
+          <div class="contact-item">
+            <i class="fas fa-map-marker-alt"></i>
+            <div>
+              <strong data-es="Dirección" data-en="Address">Dirección</strong>
+              <p>88 W 50 S Unit E2, Centerville, UTAH 84014</p>
             </div>
-        </section>
-    </main>
+          </div>
+          <div class="contact-item">
+            <i class="fas fa-phone"></i>
+            <div>
+              <strong data-es="Teléfono" data-en="Phone">Teléfono</strong>
+              <p>+1 (385) 457-2324</p>
+            </div>
+          </div>
+          <div class="contact-item">
+            <i class="fas fa-envelope"></i>
+            <div>
+              <strong>Email</strong>
+              <p>info@margaritastailoring.com</p>
+            </div>
+          </div>
+          <div class="contact-item">
+            <i class="fas fa-clock"></i>
+            <div>
+              <strong data-es="Horario" data-en="Hours">Horario</strong>
+              <p data-es="Lun - Vie: 9:00 - 18:00<br>Sáb: 10:00 - 14:00" 
+                 data-en="Mon - Fri: 9:00 - 18:00<br>Sat: 10:00 - 14:00">
+                 Lun - Vie: 9:00 - 18:00<br>Sáb: 10:00 - 14:00
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <footer>
-        <p>&copy; 2025 Margarita's Tailoring - <span data-es="Todos los derechos reservados" data-en="All rights reserved">Todos los derechos reservados</span></p>
-    </footer>
+  <section class="cta-section">
+    <div class="container">
+      <h2 data-es="¿Listo para crear tu pieza única?" 
+          data-en="Ready to create your unique piece?">
+          ¿Listo para crear tu pieza única?
+      </h2>
+      <p data-es="Trabajemos juntos para crear algo extraordinario." 
+         data-en="Let's work together to create something extraordinary.">
+         Trabajemos juntos para crear algo extraordinario.
+      </p>
+      <a href="booking.html" class="btn primary-btn" 
+         data-es="Reservar Consulta" data-en="Book Consultation">Reservar Consulta</a>
+    </div>
+  </section>
 
-    <script type="module" src="js/main.js"></script>
+  <footer>
+    <div class="footer-horizontal">
+      <div class="footer-block">
+        <div class="logo">
+          <i class="fas fa-cut"></i> 
+          Margarita's<span class="logo-dot">.</span>
+        </div>
+        <p data-es="Creando experiencias únicas en sastrería." 
+           data-en="Creating unique experiences in tailoring.">
+           Creando experiencias únicas en sastrería.
+        </p>
+      </div>
+ 
+      <div class="footer-block">
+        <h3 data-es="Enlaces Rápidos" data-en="Quick Links">Enlaces Rápidos</h3>
+        <ul>
+          <li><a href="#home" data-es="Inicio" data-en="Home">Inicio</a></li>
+          <li><a href="#services" data-es="Servicios" data-en="Services">Servicios</a></li>
+          <li><a href="#about" data-es="Acerca de" data-en="About">Acerca de</a></li>
+          <li><a href="#contact" data-es="Contacto" data-en="Contact">Contacto</a></li>
+        </ul>
+      </div>
+ 
+      <div class="footer-block">
+        <h3 data-es="Síguenos" data-en="Follow Us">Síguenos</h3>
+        <div class="social-icons">
+          <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+          <a href="#" aria-label="Pinterest"><i class="fab fa-pinterest"></i></a>
+          <a href="#" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+        </div>
+      </div>
+    </div>
+ 
+    <div class="footer-bottom">
+      <p>© 2024 Margarita's Tailoring. 
+          <span data-es="Todos los derechos reservados." data-en="All rights reserved.">
+          Todos los derechos reservados.
+          </span>
+      </p>
+    </div>
+  </footer>
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="/js/main.js"></script>
 </body>
 </html>
