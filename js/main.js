@@ -1,10 +1,5 @@
 // ===== CONFIGURACIÓN Y CONSTANTES =====
 const CONFIG = {
-  counterAPI: {
-    token: 'ut_Dmx4tpDNGvpsj4LliCSadSQeko7SEAExEPdEQ4uB', 
-    baseURL: 'https://api.counterapi.dev/v2',
-    counterSlug: 'margaritas-tailoring-helper' // Este es el slug que veo en tu captura
-  },
   defaultLanguage: 'es',
   servicesFile: './data/services.json'
 };
@@ -46,37 +41,6 @@ async function initializeApp() {
   }
 }
 
-// ===== CONTADOR DE VISITAS =====
-async function initVisitCounter() {
-  const visitCountElement = document.getElementById('visit-count');
-  
-  if (!visitCountElement) {
-    console.warn('⚠️ Elemento visit-count no encontrado');
-    return;
-  }
-
-  try {
-    // URL corregida: usar el slug del contador directamente
-    const response = await fetch(`${CONFIG.counterAPI.baseURL}/${CONFIG.counterAPI.counterSlug}/up`, {
-      method: 'POST'
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const visitCount = data.count || 0;
-    
-    // Animar el contador
-    animateCounter(visitCountElement, visitCount);
-    
-    console.log(`📊 Visitas actualizadas: ${visitCount}`);
-  } catch (error) {
-    console.error('❌ Error al cargar contador de visitas:', error);
-    visitCountElement.textContent = '--';
-  }
-}
 // ===== GESTIÓN DE SERVICIOS =====
 async function loadServices() {
   try {

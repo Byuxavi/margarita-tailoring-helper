@@ -82,16 +82,6 @@
     </div>
   </header>
 
-  <section class="visit-counter">
-    <div class="container">
-      <div class="counter-content">
-        <i class="fas fa-eye"></i>
-        <span data-es="Visitas al sitio:" data-en="Site visits:">Visitas al sitio:</span>
-        <span id="visit-count">Cargando...</span>
-      </div>
-    </div>
-  </section>
-
   <section class="about" id="about">
     <div class="container">
       <div class="section-header">
@@ -204,7 +194,7 @@
     </div>
   </section>
 
-  <section class="contact" id="contact">
+<section class="contact" id="contact">
     <div class="container">
       <div class="section-header">
         <h2 data-es="Contacto y Reservas" data-en="Contact & Reservations">Contacto y Reservas</h2>
@@ -249,10 +239,13 @@
             </div>
           </div>
         </div>
+        <!-- Nuevo contenedor del mapa -->
+        <div class="map-container">
+          <div id="map"></div>
+        </div>
       </div>
     </div>
   </section>
-
   <section class="cta-section">
     <div class="container">
       <h2 data-es="¿Listo para crear tu pieza única?" 
@@ -313,5 +306,10 @@
 
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script src="/js/main.js"></script>
+  <script src="/js/modules/maps.js"></script>
+ <script async defer 
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCyrePzpyKk0TyxmsOD_DfsugNzsqj100c">
+</script>
+  
 </body>
 </html>
