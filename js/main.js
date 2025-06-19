@@ -1,12 +1,14 @@
 // ===== CONFIGURACIÓN Y CONSTANTES =====
 const CONFIG = {
   counterAPI: {
-    token: 'ut_Dmx4tpDNGvpsj4LliCSadSQeko7SEAExEPdEQ4uB',
-    baseURL: 'https://api.counterapi.dev/v1'
+    token: 'ut_Dmx4tpDNGvpsj4LliCSadSQeko7SEAExEPdEQ4uB', 
+    baseURL: 'https://api.counterapi.dev/v2',
+    counterSlug: 'margaritas-tailoring-helper' // Este es el slug que veo en tu captura
   },
   defaultLanguage: 'es',
   servicesFile: './data/services.json'
 };
+
 
 // ===== ESTADO GLOBAL =====
 let currentLanguage = localStorage.getItem('language') || CONFIG.defaultLanguage;
@@ -54,8 +56,10 @@ async function initVisitCounter() {
   }
 
   try {
-    // Incrementar contador
-    const response = await fetch(`${CONFIG.counterAPI.baseURL}/${CONFIG.counterAPI.token}/up`);
+    // URL corregida: usar el slug del contador directamente
+    const response = await fetch(`${CONFIG.counterAPI.baseURL}/${CONFIG.counterAPI.counterSlug}/up`, {
+      method: 'POST'
+    });
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -73,23 +77,6 @@ async function initVisitCounter() {
     visitCountElement.textContent = '--';
   }
 }
-
-function animateCounter(element, targetCount) {
-  let currentCount = 0;
-  const increment = Math.ceil(targetCount / 50);
-  const duration = 1500; // 1.5 segundos
-  const stepTime = duration / (targetCount / increment);
-  
-  const timer = setInterval(() => {
-    currentCount += increment;
-    if (currentCount >= targetCount) {
-      currentCount = targetCount;
-      clearInterval(timer);
-    }
-    element.textContent = currentCount.toLocaleString();
-  }, stepTime);
-}
-
 // ===== GESTIÓN DE SERVICIOS =====
 async function loadServices() {
   try {
