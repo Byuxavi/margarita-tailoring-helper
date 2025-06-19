@@ -343,3 +343,23 @@ if (typeof module !== 'undefined' && module.exports) {
     loadServices
   };
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+    const navLinks = document.querySelector('.nav-links');
+    const navLinksList = document.querySelectorAll('.nav-links li a'); // Select individual links
+
+    // Toggle menu visibility when hamburger button is clicked
+    mobileMenuBtn.addEventListener('click', () => {
+        navLinks.classList.toggle('active');
+        mobileMenuBtn.classList.toggle('active'); // Optional: to change icon
+    });
+
+    // Close menu when a navigation link is clicked (for smooth UX)
+    navLinksList.forEach(link => {
+        link.addEventListener('click', () => {
+            navLinks.classList.remove('active');
+            mobileMenuBtn.classList.remove('active'); // Optional: revert icon
+        });
+    });
+});

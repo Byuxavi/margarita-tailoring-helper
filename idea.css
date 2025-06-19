@@ -544,12 +544,225 @@ section {
 
 /* Responsive para móviles */
 @media (max-width: 768px) {
+  /* General mobile adjustments */
+  section {
+    padding: var(--spacing-xl) 0; /* Adjust padding for sections */
+  }
+
+  .section-header {
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .section-header h2 {
+    font-size: var(--text-3xl); /* Smaller heading on mobile */
+  }
+
+  .section-subheading {
+    font-size: var(--text-base); /* Smaller subheading */
+  }
+
+  /* Hero Section */
+  .hero {
+    margin-top: 50px; /* Adjust margin for mobile header */
+    padding: var(--spacing-xl) 0;
+  }
+
+  .hero .container {
+    grid-template-columns: 1fr; /* Stack content vertically */
+    gap: var(--spacing-xl);
+    text-align: center; /* Center align text */
+  }
+
+  .hero-content {
+    max-width: 100%; /* Use full width */
+    order: 2; /* Place content below image on mobile */
+  }
+
+  .hero h1 {
+    font-size: var(--text-4xl); /* Adjust font size for mobile */
+  }
+
+  .hero-subtitle {
+    font-size: var(--text-lg);
+  }
+
+  .hero-cta {
+    flex-direction: column; /* Stack buttons vertically */
+    gap: var(--spacing-sm);
+    align-items: center; /* Center align buttons */
+  }
+
+  .hero-tags {
+    justify-content: center; /* Center tags */
+  }
+
+  .hero-image {
+    order: 1; /* Place image above content on mobile */
+  }
+
+  .hero-shape {
+    width: 250px; /* Smaller shape */
+    height: 250px;
+  }
+
+  .hero-icon {
+    font-size: 60px; /* Smaller icon */
+  }
+
+  /* About Section */
+  .about-content {
+    grid-template-columns: 1fr; /* Stack content vertically */
+    gap: var(--spacing-xl);
+  }
+
+  .about-text {
+    max-width: 100%;
+  }
+
+  .about-stats {
+    grid-template-columns: 1fr; /* Stack stats vertically */
+    gap: var(--spacing-md);
+  }
+
+  .about-img-placeholder {
+    width: 300px; /* Smaller placeholder */
+    height: 300px;
+  }
+
+  .about-img-placeholder i {
+    font-size: 80px;
+  }
+
+  /* Services Section */
+  .services-grid {
+    grid-template-columns: 1fr; /* Single column for services */
+  }
+
+  /* Process Section */
+  .process-steps {
+    grid-template-columns: 1fr; /* Single column for process steps */
+  }
+
+  /* Contact Section */
   .contact-content {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Already handled, but confirming */
     gap: 2rem;
   }
   
   .map-container {
-    height: 300px;
+    height: 300px; /* Already handled, but confirming */
+  }
+
+  .contact-info h3 {
+    margin-bottom: var(--spacing-lg);
+  }
+}
+
+/* Optional: Adjustments for slightly larger mobile screens or small tablets (e.g., 480px) */
+@media (min-width: 480px) and (max-width: 767px) {
+  .about-stats {
+    grid-template-columns: repeat(2, 1fr); /* Two columns for stats on slightly larger mobiles */
+  }
+}
+
+/* Optional: Adjustments for tablets (e.g., 769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Hero Section */
+  .hero .container {
+    gap: var(--spacing-xl);
+  }
+
+  .hero h1 {
+    font-size: var(--text-4xl);
+  }
+
+  .hero-subtitle {
+    font-size: var(--text-lg);
+  }
+
+  /* About Section */
+  .about-content {
+    gap: var(--spacing-xl);
+  }
+
+  .about-stats {
+    grid-template-columns: repeat(3, 1fr); /* Keep 3 columns or adjust as needed */
+  }
+
+  .about-img-placeholder {
+    width: 350px;
+    height: 350px;
+  }
+
+  /* Services Section */
+  .services-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Adjust min-width for tablet */
+  }
+
+  /* Process Section */
+  .process-steps {
+    grid-template-columns: repeat(2, 1fr); /* Two columns for process steps on tablets */
+  }
+}
+/* --- HAMBURGER MENU / MOBILE NAVIGATION --- */
+
+/* Hide nav links by default on small screens */
+.nav-links {
+  display: flex; /* Keep for larger screens */
+}
+
+.mobile-menu-btn {
+  display: none; /* Hide by default on larger screens */
+  background: none;
+  border: none;
+  font-size: var(--text-xl); /* Adjust as needed */
+  color: var(--text-primary); /* Or your primary text color */
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  z-index: 1001; /* Ensure it's above other content */
+}
+
+/* Media query for mobile */
+@media (max-width: 768px) {
+  .nav-links {
+    /* Styles for mobile menu when closed */
+    position: fixed;
+    top: 0;
+    right: -100%; /* Initially off-screen */
+    width: 250px; /* Width of the mobile menu */
+    height: 100vh;
+    background: var(--bg-primary); /* Background of the mobile menu */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-top: 70px; /* Adjust if your header is fixed */
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
+    transition: right 0.3s ease-in-out; /* Smooth slide-in/out */
+    z-index: 1000; /* Below the hamburger button */
+  }
+
+  .nav-links li {
+    margin: var(--spacing-md) 0; /* Space between menu items */
+  }
+
+  .nav-links a {
+    font-size: var(--text-xl); /* Larger font for mobile links */
+    color: var(--text-primary);
+    padding: var(--spacing-sm);
+    display: block; /* Make links block-level for larger click area */
+  }
+
+  /* State when menu is open */
+  .nav-links.active {
+    right: 0; /* Slide into view */
+  }
+
+  .mobile-menu-btn {
+    display: block; /* Show hamburger button on mobile */
+  }
+
+  /* Optional: Change hamburger icon to 'X' when menu is active */
+  .mobile-menu-btn.active .fa-bars::before {
+    content: "\f00d"; /* Font Awesome 'X' icon */
   }
 }
