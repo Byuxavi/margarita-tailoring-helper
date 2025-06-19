@@ -4,7 +4,6 @@ const CONFIG = {
   servicesFile: './data/services.json'
 };
 
-
 // ===== ESTADO GLOBAL =====
 let currentLanguage = localStorage.getItem('language') || CONFIG.defaultLanguage;
 let servicesData = null;
@@ -17,24 +16,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function initializeApp() {
   try {
-    // Configurar idioma inicial
     setLanguage(currentLanguage);
-    
-    // Configurar tema inicial
     setTheme(isDarkMode);
-    
-    // Cargar servicios
     await loadServices();
-    
-    // Inicializar contador de visitas
-    await initVisitCounter();
-    
-    // Configurar event listeners
     setupEventListeners();
-    
-    // Inicializar navegación suave
     initSmoothScrolling();
-    
     console.log('✅ Aplicación inicializada correctamente');
   } catch (error) {
     console.error('❌ Error al inicializar la aplicación:', error);
@@ -48,7 +34,6 @@ async function loadServices() {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
     servicesData = await response.json();
     renderServices();
     console.log('✅ Servicios cargados correctamente');
@@ -114,7 +99,6 @@ function createServiceCard(service) {
     </div>
   `;
   
-  // Agregar animación de entrada
   card.style.opacity = '0';
   card.style.transform = 'translateY(20px)';
   
@@ -149,12 +133,10 @@ function setLanguage(lang) {
   currentLanguage = lang;
   localStorage.setItem('language', lang);
   
-  // Actualizar elementos con data-es y data-en
   const elements = document.querySelectorAll('[data-es][data-en]');
   elements.forEach(element => {
     const text = element.getAttribute(`data-${lang}`);
     if (text) {
-      // Preservar HTML interno si existe
       if (text.includes('<')) {
         element.innerHTML = text;
       } else {
@@ -162,20 +144,19 @@ function setLanguage(lang) {
       }
     }
   });
-  
-  // Actualizar indicador de idioma
+
   const langIndicator = document.getElementById('current-lang');
   if (langIndicator) {
     langIndicator.textContent = lang.toUpperCase();
   }
-  
-  // Re-renderizar servicios si están cargados
+
   if (servicesData) {
     renderServices();
   }
-  
-  // Actualizar título de la página
-  document.title = lang === 'es' ? "Margarita's Tailoring - Sastrería de Alta Costura" : "Margarita's Tailoring - Haute Couture Tailoring";
+
+  document.title = lang === 'es' 
+    ? "Margarita's Tailoring - Sastrería de Alta Costura"
+    : "Margarita's Tailoring - Haute Couture Tailoring";
 }
 
 // ===== GESTIÓN DE TEMA =====
@@ -188,8 +169,7 @@ function setTheme(darkMode) {
   } else {
     document.body.classList.remove('dark-mode');
   }
-  
-  // Actualizar icono del toggle
+
   const themeIcon = document.querySelector('#theme-toggle i');
   if (themeIcon) {
     themeIcon.className = darkMode ? 'fas fa-sun' : 'fas fa-moon';
@@ -215,11 +195,8 @@ function initSmoothScrolling() {
           top: targetPosition,
           behavior: 'smooth'
         });
-        
-        // Actualizar enlace activo
+
         updateActiveNavLink(this);
-        
-        // Cerrar menú móvil si está abierto
         closeMobileMenu();
       }
     });
@@ -239,13 +216,8 @@ function toggleMobileMenu() {
   
   navbar.classList.toggle('mobile-menu-open');
   
-  // Cambiar icono
   const icon = mobileBtn.querySelector('i');
-  if (navbar.classList.contains('mobile-menu-open')) {
-    icon.className = 'fas fa-times';
-  } else {
-    icon.className = 'fas fa-bars';
-  }
+  icon.className = navbar.classList.contains('mobile-menu-open') ? 'fas fa-times' : 'fas fa-bars';
 }
 
 function closeMobileMenu() {
@@ -253,9 +225,7 @@ function closeMobileMenu() {
   const mobileBtn = document.querySelector('.mobile-menu-btn');
   
   navbar.classList.remove('mobile-menu-open');
-  
-  const icon = mobileBtn.querySelector('i');
-  icon.className = 'fas fa-bars';
+  mobileBtn.querySelector('i').className = 'fas fa-bars';
 }
 
 // ===== EFECTOS DE SCROLL =====
@@ -266,14 +236,12 @@ function initScrollEffects() {
   window.addEventListener('scroll', function() {
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
     
-    // Navbar transparente/sólido
     if (scrollTop > 100) {
       navbar.classList.add('scrolled');
     } else {
       navbar.classList.remove('scrolled');
     }
-    
-    // Ocultar/mostrar navbar en mobile
+
     if (window.innerWidth <= 768) {
       if (scrollTop > lastScrollTop && scrollTop > 200) {
         navbar.style.transform = 'translateY(-100%)';
@@ -281,14 +249,13 @@ function initScrollEffects() {
         navbar.style.transform = 'translateY(0)';
       }
     }
-    
+
     lastScrollTop = scrollTop;
   });
 }
 
 // ===== EVENT LISTENERS =====
 function setupEventListeners() {
-  // Toggle de idioma
   const languageToggle = document.getElementById('language-toggle');
   if (languageToggle) {
     languageToggle.addEventListener('click', () => {
@@ -296,37 +263,31 @@ function setupEventListeners() {
       setLanguage(newLang);
     });
   }
-  
-  // Toggle de tema
+
   const themeToggle = document.getElementById('theme-toggle');
   if (themeToggle) {
     themeToggle.addEventListener('click', () => {
       setTheme(!isDarkMode);
     });
   }
-  
-  // Menú móvil
+
   const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
   if (mobileMenuBtn) {
     mobileMenuBtn.addEventListener('click', toggleMobileMenu);
   }
-  
-  // Cerrar menú móvil al hacer clic fuera
+
   document.addEventListener('click', function(e) {
     const navbar = document.getElementById('navbar');
     if (!navbar.contains(e.target) && navbar.classList.contains('mobile-menu-open')) {
       closeMobileMenu();
     }
   });
-  
-  // Efectos de scroll
+
   initScrollEffects();
-  
-  // Botones CTA
+
   const ctaButtons = document.querySelectorAll('.btn');
   ctaButtons.forEach(btn => {
     btn.addEventListener('click', function(e) {
-      // Efecto ripple
       createRippleEffect(e, this);
     });
   });
@@ -344,12 +305,10 @@ function createRippleEffect(event, element) {
   ripple.style.left = x + 'px';
   ripple.style.top = y + 'px';
   ripple.classList.add('ripple');
-  
+
   element.appendChild(ripple);
-  
-  setTimeout(() => {
-    ripple.remove();
-  }, 600);
+
+  setTimeout(() => ripple.remove(), 600);
 }
 
 // ===== UTILIDADES =====
@@ -365,7 +324,6 @@ function debounce(func, wait) {
   };
 }
 
-// Optimizar scroll events
 const optimizedScrollHandler = debounce(initScrollEffects, 10);
 
 // ===== MANEJO DE ERRORES GLOBALES =====
@@ -382,7 +340,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     setLanguage,
     setTheme,
-    loadServices,
-    initVisitCounter
+    loadServices
   };
 }
