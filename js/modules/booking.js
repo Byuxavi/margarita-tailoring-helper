@@ -1,4 +1,4 @@
-// booking.js 
+// booking.js - Versión corregida
 class BookingManager {
     constructor() {
         this.emailConfig = {
@@ -27,6 +27,7 @@ class BookingManager {
     async loadEmailJS() {
         return new Promise((resolve, reject) => {
             if (window.emailjs) {
+                console.log('✅ EmailJS already loaded');
                 resolve();
                 return;
             }
@@ -37,15 +38,20 @@ class BookingManager {
             const timeout = setTimeout(() => {
                 script.remove();
                 reject(new Error('EmailJS load timeout'));
-            }, 10000);
+            }, 15000); // Aumenté el timeout
 
             script.onload = () => {
                 clearTimeout(timeout);
                 try {
-                    emailjs.init(this.emailConfig.publicKey);
-                    console.log('✅ EmailJS loaded and initialized');
-                    resolve();
+                    if (window.emailjs) {
+                        emailjs.init(this.emailConfig.publicKey);
+                        console.log('✅ EmailJS loaded and initialized');
+                        resolve();
+                    } else {
+                        throw new Error('EmailJS not available after load');
+                    }
                 } catch (error) {
+                    console.error('Error initializing EmailJS:', error);
                     reject(error);
                 }
             };
@@ -174,6 +180,12 @@ class BookingManager {
             const formData = new FormData(form);
             const bookingData = Object.fromEntries(formData.entries());
 
+            // Agregar valores de checkboxes manualmente si no están
+            bookingData.priority = document.getElementById('priority').checked;
+            bookingData.pickup = document.getElementById('pickup').checked;
+
+            console.log('📧 Datos del formulario:', bookingData);
+
             if (!this.validateForm(bookingData)) {
                 throw new Error('Por favor completa todos los campos requeridos');
             }
@@ -220,19 +232,19 @@ class BookingManager {
         // Preparar parámetros que coinciden exactamente con tu plantilla HTML
         const templateParams = {
             // Variables principales de tu plantilla
-            from_name: `${data.firstName} ${data.lastName}`,
-            from_email: data.email,
-            phone: data.phone,
+            from_name: `${data.firstName} ${data.lastName}`.trim(),
+            from_email: data.email.trim(),
+            phone: data.phone.trim(),
             service: serviceName,
             date: this.formatDate(data.date),
             time: this.formatTime(data.time),
-            priority: data.priority ? 'Sí' : 'No',
-            pickup: data.pickup ? 'Sí' : 'No',
-            address: data.address || '', // Vacío si no hay dirección
-            description: data.description || '', // Vacío si no hay descripción
+            priority: data.priority ? 'Sí (+$20)' : 'No',
+            pickup: data.pickup ? 'Sí (+$15)' : 'No',
+            address: data.address ? data.address.trim() : 'No aplica',
+            description: data.description ? data.description.trim() : 'Sin descripción adicional',
             
             // Variables adicionales para el subject y mensaje general
-            to_email: 'info@margaritastailoring.com', // Tu email de negocio
+            to_email: 'info@margaritastailoring.com',
             subject: `Nueva Reserva - ${data.firstName} ${data.lastName}`,
             
             // Mensaje completo como backup
@@ -249,22 +261,34 @@ class BookingManager {
             );
 
             console.log('✅ Email enviado exitosamente:', result);
+            
+            // Verificar el status de la respuesta
+            if (result.status === 200) {
+                console.log('✅ Confirmación: Email entregado correctamente');
+            } else {
+                console.warn('⚠️ Email enviado pero status inesperado:', result.status);
+            }
+            
             return result;
 
         } catch (error) {
-            console.error('❌ Error enviando email:', error);
+            console.error('❌ Error detallado enviando email:', error);
             
             // Proporcionar más información sobre el error
             let errorMessage = 'Error desconocido enviando email';
             
             if (error.status === 400) {
-                errorMessage = 'Error en los datos del formulario';
+                errorMessage = 'Error en los datos del formulario - Verifica que todos los campos estén completos';
             } else if (error.status === 401) {
-                errorMessage = 'Error de autenticación con EmailJS';
+                errorMessage = 'Error de autenticación con EmailJS - Verifica las credenciales';
             } else if (error.status === 403) {
-                errorMessage = 'Acceso denegado a EmailJS';
+                errorMessage = 'Acceso denegado a EmailJS - Verifica la configuración';
+            } else if (error.status === 404) {
+                errorMessage = 'Template o Service ID no encontrado en EmailJS';
             } else if (error.status >= 500) {
-                errorMessage = 'Error del servidor de EmailJS';
+                errorMessage = 'Error del servidor de EmailJS - Intenta más tarde';
+            } else if (error.text) {
+                errorMessage = `Error EmailJS: ${error.text}`;
             }
 
             throw new Error(errorMessage);
@@ -274,7 +298,7 @@ class BookingManager {
     // Métodos utilitarios para formatear datos
     formatDate(dateString) {
         try {
-            const date = new Date(dateString);
+            const date = new Date(dateString + 'T00:00:00'); // Evitar problemas de timezone
             return date.toLocaleDateString('es-ES', {
                 weekday: 'long',
                 year: 'numeric',
@@ -282,6 +306,7 @@ class BookingManager {
                 day: 'numeric'
             });
         } catch (error) {
+            console.warn('Error formateando fecha:', error);
             return dateString;
         }
     }
@@ -296,6 +321,7 @@ class BookingManager {
                 minute: '2-digit'
             });
         } catch (error) {
+            console.warn('Error formateando hora:', error);
             return timeString;
         }
     }
@@ -308,8 +334,8 @@ class BookingManager {
         message += `Servicio: ${serviceName}\n`;
         message += `Fecha: ${this.formatDate(data.date)}\n`;
         message += `Hora: ${this.formatTime(data.time)}\n`;
-        message += `Servicio Express: ${data.priority ? 'Sí' : 'No'}\n`;
-        message += `Recolección a domicilio: ${data.pickup ? 'Sí' : 'No'}\n`;
+        message += `Servicio Express: ${data.priority ? 'Sí (+$20)' : 'No'}\n`;
+        message += `Recolección a domicilio: ${data.pickup ? 'Sí (+$15)' : 'No'}\n`;
         
         if (data.address) {
             message += `Dirección de recolección: ${data.address}\n`;
@@ -328,7 +354,7 @@ class BookingManager {
         const required = ['firstName', 'lastName', 'email', 'phone', 'service', 'date', 'time'];
         
         for (const field of required) {
-            if (!data[field] || data[field].trim() === '') {
+            if (!data[field] || data[field].toString().trim() === '') {
                 console.error(`❌ Campo requerido faltante: ${field}`);
                 this.showErrorNotification(`El campo ${this.getFieldDisplayName(field)} es requerido`);
                 return false;
@@ -345,14 +371,14 @@ class BookingManager {
 
         // Validar teléfono básico
         const phoneRegex = /^[\d\s\-\(\)\+]+$/;
-        if (!phoneRegex.test(data.phone.trim())) {
+        if (!phoneRegex.test(data.phone.toString().trim())) {
             console.error('❌ Formato de teléfono inválido');
             this.showErrorNotification('Por favor ingresa un teléfono válido');
             return false;
         }
 
         // Si requiere recolección, validar dirección
-        if (data.pickup && (!data.address || data.address.trim() === '')) {
+        if (data.pickup && (!data.address || data.address.toString().trim() === '')) {
             console.error('❌ Dirección requerida para recolección');
             this.showErrorNotification('La dirección es requerida para el servicio de recolección');
             return false;
@@ -495,4 +521,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-export default BookingManager;
+// Hacer BookingManager disponible globalmente si es necesario
+window.BookingManager = BookingManager;
